@@ -1,8 +1,10 @@
+mod widgets;
 mod window;
 
 use std::os::unix::io::AsRawFd;
 use pango::LayoutExt;
 
+use widgets::Widget;
 use window::{Display,Event,Size,Window};
 
 fn main() {
@@ -107,10 +109,7 @@ fn main() {
 
 /// Do our Cairo drawing. This needs to be refactored to allow for
 /// more configurability in terms of what gets written!
-fn draw(ctx: &cairo::Context, left: &str, Size { wd: width, ..}: Size) {
-    // for the current time on the right
-    let now = time::now();
-
+fn draw(ctx: &cairo::Context, left: &str, size: Size) {
     // the background is... gray-ish? this'll be configurable eventually
     ctx.set_source_rgb(0.1, 0.1, 0.1);
     ctx.paint();
@@ -120,25 +119,36 @@ fn draw(ctx: &cairo::Context, left: &str, Size { wd: width, ..}: Size) {
 
     // Our pango layout handles placing and drawing text
     let layout = pangocairo::functions::create_layout(&ctx).unwrap();
-    // for the time, we want to align it to the right
-    layout.set_alignment(pango::Alignment::Right);
     // allow for the whole width of the bar, minus a small fixed amount
-    layout.set_width((width - 20) * pango::SCALE);
+    layout.set_width((size.wd - 20) * pango::SCALE);
     // this should also be configurable, but Fira Mono is a good font
     let mut font = pango::FontDescription::from_string("Fira Mono 18");
     font.set_weight(pango::Weight::Bold);
     layout.set_font_description(&font);
-    // start drawing in the top-left
-    ctx.move_to(10.0, 4.0);
-    //The text here is just the nicely-rendered current time
-    layout.set_text(&time::strftime("%a %b %d %H:%M", &now).unwrap());
-    // and draw it
-    pangocairo::functions::show_layout(&ctx, &layout);
 
-    // We can reuse the same layout, but starting from the left
-    layout.set_alignment(pango::Alignment::Left);
-    // and now we write whatever the "current text" is...
-    layout.set_text(left);
-    // and draw that!
-    pangocairo::functions::show_layout(&ctx, &layout);
+    // set up a struct with everything that widgets need to draw
+    let drawing = widgets::Drawing {
+        ctx: ctx,
+        lyt: &layout,
+        size,
+    };
+    // set up our widgets
+    let text = widgets::Text::new(left);
+    let time = widgets::Time::new();
+    let sbox = widgets::SmallBox;
+
+    // and create a 'config' which tells us which widgets to draw from
+    // the left, and which from the right
+    let config = widgets::Config {
+        left: vec![
+            &text as &Widget,
+        ],
+        right: vec![
+            &sbox as &Widget,
+            &time as &Widget,
+        ],
+    };
+    // and draw them!
+    config.draw(&drawing);
+
 }
