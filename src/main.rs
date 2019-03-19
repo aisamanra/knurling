@@ -1,92 +1,95 @@
 mod window;
 
-use std::ptr;
-use std::io::Write;
 use std::os::unix::io::AsRawFd;
-
 use pango::LayoutExt;
 
-use window::{Event,Window};
+use window::{Display,Event,Window};
 
 fn main() {
-    unsafe {
-        let mut w = Window::create();
-        w.change_property(
-            "_NET_WM_WINDOW_TYPE",
-            &["_NET_WM_WINDOW_TYPE_DOCK"],
-        );
+    let mut d = Display::create();
+    let width = d.get_width();
+    let mut w = Window::create(d, width, 36);
+    w.change_property(
+        "_NET_WM_WINDOW_TYPE",
+        &["_NET_WM_WINDOW_TYPE_DOCK"],
+    );
 
-        w.change_property(
-            "_NET_WM_STRUT_PARTIAL",
-            &[
-                0,    0, 36,  0,
-                0,    0,  0,  0,
-                0, 3840,  0,  0i64,
-            ],
-        );
-        w.change_property(
-            "_NET_WM_STRUT",
-            &[0i64, 0, 36, 0],
-        );
+    w.change_property(
+        "_NET_WM_STRUT_PARTIAL",
+        &[
+            0,            0, 36, 0,
+            0,            0,  0, 0,
+            0, width as i64,  0, 0,
+        ],
+    );
+    w.change_property(
+        "_NET_WM_STRUT",
+        &[0i64, 0, 36, 0],
+    );
 
-        w.set_title("rbar");
+    w.set_title("rbar");
 
-        w.set_input_masks();
+    w.set_input_masks();
 
-        w.set_protocols();
-        w.map();
+    w.set_protocols();
+    w.map();
 
-        let surf = w.get_cairo_surface();
-        let ctx = cairo::Context::new(&surf);
+    let surf = w.get_cairo_surface();
+    let ctx = cairo::Context::new(&surf);
 
-        let window_fd = w.get_fd();
+    let window_fd = w.get_fd();
 
-        let mut fds = std::mem::uninitialized();
-        let mut input = format!("Loading...");
-        let stdin_fd = std::io::stdin().as_raw_fd();
-        let mut stdin = std::io::BufReader::new(std::io::stdin());
-        let mut timer = libc::timeval {
-            tv_sec: 5,
-            tv_usec: 0,
-        };
-        let mut log = std::fs::File::create("/home/gdritter/log.txt").unwrap();
-        draw(&ctx, "[1]");
+    let mut fds = unsafe { std::mem::uninitialized() };
+    let mut input = format!("Loading...");
+    let stdin_fd = std::io::stdin().as_raw_fd();
+    let mut stdin = std::io::BufReader::new(std::io::stdin());
+    let mut timer = libc::timeval {
+        tv_sec: 5,
+        tv_usec: 0,
+    };
+    draw(&ctx, "[1]", width);
 
-        loop {
-            use std::io::BufRead;
+    loop {
+        use std::io::BufRead;
 
+        unsafe {
             libc::FD_ZERO(&mut fds);
             libc::FD_SET(window_fd, &mut fds);
             libc::FD_SET(stdin_fd, &mut fds);
 
-            libc::select(window_fd + 1, &mut fds, ptr::null_mut(), ptr::null_mut(), &mut timer);
-
-            if libc::FD_ISSET(stdin_fd, &mut fds) {
-                input = String::new();
-                stdin.read_line(&mut input).unwrap();
-                log.write_fmt(format_args!("got {}", input)).unwrap();
-                if input == "" {
-                    break;
-                }
-                draw(&ctx, &input);
-            }
-
-            while w.has_events() {
-                draw(&ctx, &input);
-                match w.handle() {
-                    Event::QuitEvent => break,
-                    Event::ShowEvent =>
-                        draw(&ctx, &input),
-                    _e => (),
-                }
-            }
-
+            libc::select(
+                window_fd + 1,
+                &mut fds,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut timer,
+            );
         }
+
+        if unsafe { libc::FD_ISSET(stdin_fd, &mut fds) } {
+            input = String::new();
+            stdin.read_line(&mut input).unwrap();
+            if input == "" {
+                break;
+            }
+            draw(&ctx, &input, width);
+        }
+
+        while w.has_events() {
+            draw(&ctx, &input, width);
+            match w.handle() {
+                Event::QuitEvent => break,
+                Event::ShowEvent =>
+                    draw(&ctx, &input, width),
+                _e => (),
+            }
+        }
+
     }
 }
 
 
-fn draw(ctx: &cairo::Context, left: &str) {
+fn draw(ctx: &cairo::Context, left: &str, width: i32) {
     let now = time::now();
 
     ctx.set_source_rgb(0.1, 0.1, 0.1);
@@ -95,7 +98,7 @@ fn draw(ctx: &cairo::Context, left: &str) {
 
     let layout = pangocairo::functions::create_layout(&ctx).unwrap();
     layout.set_alignment(pango::Alignment::Right);
-    layout.set_width((3840 - 20) * pango::SCALE);
+    layout.set_width((width - 20) * pango::SCALE);
     let mut font = pango::FontDescription::from_string("Fira Mono 18");
     font.set_weight(pango::Weight::Bold);
     layout.set_font_description(&font);

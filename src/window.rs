@@ -4,19 +4,41 @@ use std::ffi::CString;
 use std::{mem,ptr};
 use std::os::raw::{c_int,c_uchar};
 
+pub struct Display {
+    pub display: *mut xlib::_XDisplay,
+    pub screen: i32,
+}
+
+impl Display {
+    pub fn create() -> Display {
+        let display = unsafe { xlib::XOpenDisplay(ptr::null()) };
+        let screen = unsafe { xlib::XDefaultScreen(display) };
+        Display { display, screen }
+    }
+
+    pub fn get_width(&mut self) -> i32 {
+        unsafe {
+            let s = xlib::XScreenOfDisplay(self.display, self.screen);
+            xlib::XWidthOfScreen(s)
+        }
+    }
+}
+
 pub struct Window {
     pub display: *mut xlib::_XDisplay,
     pub screen: i32,
     pub window: u64,
     pub wm_protocols: u64,
     pub wm_delete_window: u64,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl Window {
-    pub fn create() -> Window {
+    pub fn create(d: Display, width: i32, height: i32) -> Window {
         unsafe {
-            let display = xlib::XOpenDisplay(ptr::null());
-            let screen = xlib::XDefaultScreen(display);
+            let display = d.display;
+            let screen = d.screen;
             let window = xlib::XCreateSimpleWindow(
                 display,
                 xlib::XRootWindow(display, screen),
@@ -42,6 +64,8 @@ impl Window {
                 window,
                 wm_protocols,
                 wm_delete_window,
+                width,
+                height,
             }
         }
     }
