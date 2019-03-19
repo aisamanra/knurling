@@ -1,0 +1,20 @@
+[package]
+name = "xsamp"
+version = "0.1.0"
+authors = ["Getty Ritter <samothes@infinitenegativeutility.com>"]
+edition = "2018"
+
+[dependencies]
+cairo-rs = "*"
+pango = "*"
+pangocairo = "*"
+time = "*"
+libc = "*"
+
+[dependencies.cairo-sys-rs]
+version = "*"
+features = ["xlib"]
+
+[dependencies.x11]
+version = "*"
+features = ["xlib", "xinput"]
