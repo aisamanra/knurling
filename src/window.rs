@@ -2,7 +2,7 @@ use x11::{xlib,xinput2};
 
 use std::ffi::CString;
 use std::{mem,ptr};
-use std::os::raw::c_int;
+use std::os::raw::{c_int,c_uchar};
 
 pub struct Window {
     pub display: *mut xlib::_XDisplay,
@@ -46,6 +46,50 @@ impl Window {
         }
     }
 
+    pub fn set_input_masks(&mut self) {
+        let mut opcode = 0;
+        let mut event = 0;
+        let mut error = 0;
+
+        let xinput_str = CString::new("XInputExtension").unwrap();
+        unsafe {
+            xlib::XQueryExtension(
+                self.display,
+                xinput_str.as_ptr(),
+                &mut opcode,
+                &mut event,
+                &mut error,
+            );
+        }
+
+        let mut mask: [c_uchar;1] = [0];
+        let mut input_event_mask = xinput2::XIEventMask {
+            deviceid: xinput2::XIAllMasterDevices,
+            mask_len: mask.len() as i32,
+            mask: mask.as_mut_ptr(),
+        };
+        let events = &[
+            xinput2::XI_ButtonPress,
+            xinput2::XI_ButtonRelease,
+        ];
+        for &event in events {
+            xinput2::XISetMask(&mut mask, event);
+        }
+
+        match unsafe {
+            xinput2::XISelectEvents(
+                self.display,
+                self.window,
+                &mut input_event_mask,
+                1,
+            )
+        } {
+            status if status as u8 == xlib::Success => (),
+            err => panic!("Failed to select events {:?}", err)
+        }
+
+    }
+
     pub fn set_protocols(&mut self) {
         let mut protocols = [self.intern("WM_DELETE_WINDOW")];
         unsafe {
@@ -81,20 +125,22 @@ impl Window {
         }
     }
 
-    pub fn change_property(&mut self, prop: &str, val: &str) {
+    pub fn change_property<T: XProperty>(&mut self, prop: &str, val: &[T]) {
         let prop = self.intern(prop);
-        let val  = self.intern(val);
         unsafe {
-            xlib::XChangeProperty(
-                self.display,
-                self.window,
-                prop,
-                xlib::XA_ATOM,
-                32,
-                xlib::PropModeReplace,
-                mem::transmute(&val),
-                1,
-            );
+            let len = val.len();
+            T::with_ptr(val, self, |w, typ, ptr| {
+                xlib::XChangeProperty(
+                    w.display,
+                    w.window,
+                    prop,
+                    typ,
+                    32,
+                    xlib::PropModeReplace,
+                    ptr,
+                    len as c_int,
+                );
+            });
         }
     }
 
@@ -128,7 +174,7 @@ impl Window {
             }
 
             xlib::Expose => return Event::ShowEvent,
-                
+
             xlib::GenericEvent => {
                 let mut cookie: xlib::XGenericEventCookie = From::from(e);
                 unsafe { xlib::XGetEventData(self.display, &mut cookie) };
@@ -152,20 +198,6 @@ impl Window {
         }
     }
 
-    pub fn show(&mut self) {
-        unsafe {
-            xlib::XClearArea(
-                self.display,
-                self.window,
-                0,
-                0,
-                3840,
-                36,
-                1
-            );
-        }
-    }
-
     pub fn get_fd(&mut self) -> i32 {
         unsafe {
             xlib::XConnectionNumber(self.display)
@@ -173,6 +205,22 @@ impl Window {
     }
 }
 
+pub trait XProperty : Sized {
+    fn with_ptr(xs: &[Self], w: &mut Window, f: impl FnOnce(&mut Window, u64, *const u8));
+}
+
+impl XProperty for i64 {
+    fn with_ptr(xs: &[Self], w: &mut Window, f: impl FnOnce(&mut Window, u64, *const u8)) {
+        f(w, xlib::XA_CARDINAL, unsafe { mem::transmute(xs.as_ptr()) })
+    }
+}
+
+impl XProperty for &str {
+    fn with_ptr(xs: &[Self], w: &mut Window, f: impl FnOnce(&mut Window, u64, *const u8)) {
+        let xs: Vec<u64> = xs.iter().map(|s| w.intern(s)).collect();
+        f(w, xlib::XA_ATOM, unsafe { mem::transmute(xs.as_ptr()) })
+    }
+}
 
 impl Drop for Window {
     fn drop(&mut self) {

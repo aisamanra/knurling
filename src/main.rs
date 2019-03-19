@@ -1,10 +1,5 @@
 mod window;
 
-use x11::xlib;
-use x11::xinput2;
-
-use std::ffi::CString;
-use std::os::raw::{c_int,c_uchar};
 use std::ptr;
 use std::io::Write;
 use std::os::unix::io::AsRawFd;
@@ -16,73 +11,27 @@ use window::{Event,Window};
 fn main() {
     unsafe {
         let mut w = Window::create();
-        w.change_property("_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK");
+        w.change_property(
+            "_NET_WM_WINDOW_TYPE",
+            &["_NET_WM_WINDOW_TYPE_DOCK"],
+        );
 
-        {
-            let prop = w.intern("_NET_WM_STRUT_PARTIAL");
-            let val = [
-                0i64, 0, 36, 0,
-                0, 0, 0,  0,
-                0, 3840, 0, 0,
-            ];
-            xlib::XChangeProperty(
-                w.display,
-                w.window,
-                prop,
-                xlib::XA_CARDINAL,
-                32,
-                xlib::PropModeReplace,
-                std::mem::transmute(val.as_ptr()),
-                val.len() as c_int,
-            );
-        }
-
-        {
-            let prop = w.intern("_NET_WM_STRUT");
-            let val = &[
-                0i64, 0, 36, 0,
-            ];
-            xlib::XChangeProperty(
-                w.display,
-                w.window,
-                prop,
-                xlib::XA_CARDINAL,
-                32,
-                xlib::PropModeReplace,
-                std::mem::transmute(val.as_ptr()),
-                val.len() as c_int,
-            );
-        }
+        w.change_property(
+            "_NET_WM_STRUT_PARTIAL",
+            &[
+                0,    0, 36,  0,
+                0,    0,  0,  0,
+                0, 3840,  0,  0i64,
+            ],
+        );
+        w.change_property(
+            "_NET_WM_STRUT",
+            &[0i64, 0, 36, 0],
+        );
 
         w.set_title("rbar");
 
-        {
-            let mut opcode = 0;
-            let mut event = 0;
-            let mut error = 0;
-            let xinput_str = CString::new("XInputExtension").unwrap();
-            let _xinput_available =
-                xlib::XQueryExtension(w.display, xinput_str.as_ptr(), &mut opcode, &mut event, &mut error);
-
-            let mut mask: [c_uchar;1] = [0];
-            let mut input_event_mask = xinput2::XIEventMask {
-                deviceid: xinput2::XIAllMasterDevices,
-                mask_len: mask.len() as i32,
-                mask: mask.as_mut_ptr(),
-            };
-            let events = &[
-                xinput2::XI_ButtonPress,
-                xinput2::XI_ButtonRelease,
-            ];
-            for &event in events {
-                xinput2::XISetMask(&mut mask, event);
-            }
-
-            match xinput2::XISelectEvents(w.display, w.window, &mut input_event_mask, 1) {
-                status if status as u8 == xlib::Success => (),
-                err => panic!("Failed to select events {:?}", err)
-            }
-        }
+        w.set_input_masks();
 
         w.set_protocols();
         w.map();
