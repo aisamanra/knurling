@@ -1,5 +1,5 @@
 [package]
-name = "xsamp"
+name = "rbar"
 version = "0.1.0"
 authors = ["Getty Ritter <samothes@infinitenegativeutility.com>"]
 edition = "2018"
