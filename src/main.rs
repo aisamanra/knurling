@@ -6,6 +6,8 @@ use x11::xinput2;
 use std::ffi::CString;
 use std::os::raw::{c_int,c_uchar};
 use std::ptr;
+use std::io::Write;
+use std::os::unix::io::AsRawFd;
 
 use pango::LayoutExt;
 
@@ -76,14 +78,13 @@ fn main() {
                 xinput2::XISetMask(&mut mask, event);
             }
 
-        
             match xinput2::XISelectEvents(w.display, w.window, &mut input_event_mask, 1) {
                 status if status as u8 == xlib::Success => (),
                 err => panic!("Failed to select events {:?}", err)
             }
         }
 
-        w.set_protocols();        
+        w.set_protocols();
         w.map();
 
         let surf = w.get_cairo_surface();
@@ -93,25 +94,28 @@ fn main() {
 
         let mut fds = std::mem::uninitialized();
         let mut input = format!("Loading...");
+        let stdin_fd = std::io::stdin().as_raw_fd();
         let mut stdin = std::io::BufReader::new(std::io::stdin());
         let mut timer = libc::timeval {
             tv_sec: 5,
             tv_usec: 0,
         };
+        let mut log = std::fs::File::create("/home/gdritter/log.txt").unwrap();
         draw(&ctx, "[1]");
-        
+
         loop {
             use std::io::BufRead;
 
             libc::FD_ZERO(&mut fds);
             libc::FD_SET(window_fd, &mut fds);
-            libc::FD_SET(1, &mut fds);
+            libc::FD_SET(stdin_fd, &mut fds);
 
             libc::select(window_fd + 1, &mut fds, ptr::null_mut(), ptr::null_mut(), &mut timer);
 
-            if libc::FD_ISSET(1, &mut fds) {
+            if libc::FD_ISSET(stdin_fd, &mut fds) {
                 input = String::new();
                 stdin.read_line(&mut input).unwrap();
+                log.write_fmt(format_args!("got {}", input)).unwrap();
                 if input == "" {
                     break;
                 }
@@ -122,7 +126,9 @@ fn main() {
                 draw(&ctx, &input);
                 match w.handle() {
                     Event::QuitEvent => break,
-                    e => (),
+                    Event::ShowEvent =>
+                        draw(&ctx, &input),
+                    _e => (),
                 }
             }
 
@@ -133,7 +139,7 @@ fn main() {
 
 fn draw(ctx: &cairo::Context, left: &str) {
     let now = time::now();
-    
+
     ctx.set_source_rgb(0.1, 0.1, 0.1);
     ctx.paint();
     ctx.set_source_rgb(1.0, 1.0, 1.0);
