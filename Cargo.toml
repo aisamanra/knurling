@@ -8,7 +8,8 @@ edition = "2018"
 cairo-rs = "0.6"
 pango = "0.6"
 pangocairo = "0.7"
-time = "0.1"
+# time = "0.1"
+chrono = "*"
 libc = "0.2"
 
 [dependencies.cairo-sys-rs]

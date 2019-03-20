@@ -67,8 +67,8 @@ impl Time {
 
 impl Widget for Time {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
-        let now = time::now();
-        loc.draw_text(d, &time::strftime(&self.fmt, &now).unwrap())
+        let now = chrono::Local::now();
+        loc.draw_text(d, &format!("{}", &now.format(&self.fmt)))
     }
 }
 
@@ -99,6 +99,58 @@ impl Widget for SmallBox {
         let x = loc.target_x(d, sz);
         d.ctx.rectangle(x, 4.0, sz as f64, sz as f64);
         d.ctx.fill();
+        sz
+    }
+}
+
+
+
+pub struct Battery;
+
+impl Battery {
+    fn read_status(&self) -> f64 {
+        use std::fs;
+
+        let mut batteries = Vec::new();
+        for entry in fs::read_dir("/sys/class/power_supply").unwrap() {
+            let e = entry.unwrap();
+            if e.file_name().to_string_lossy().starts_with("BAT") {
+                batteries.push(e.path());
+            }
+        }
+
+        let mut charges: Vec<i32> = Vec::new();
+        for mut bat in batteries {
+            bat.push("capacity");
+            let r = fs::read_to_string(bat).unwrap();
+            charges.push(r.trim().parse::<i32>().unwrap());
+        }
+
+        let len = charges.len() as f64;
+        let sum: i32 = charges.into_iter().sum();
+        sum as f64 / len / 100.0
+    }
+}
+
+impl Widget for Battery {
+    fn draw(&self, d: &Drawing, loc: Located) -> i32 {
+        let amt = self.read_status();
+        let sz = d.size.ht - 8;
+        let x = loc.target_x(d, sz);
+        if amt < 0.1 {
+            d.ctx.set_source_rgb(1.0, 0.0, 0.0);
+        } else if amt < 0.5 {
+            d.ctx.set_source_rgb(1.0, 1.0, 0.0);
+        } else {
+            d.ctx.set_source_rgb(0.0, 1.0, 0.5);
+        }
+        d.ctx.rectangle(x, 8.0, sz as f64 * amt, sz as f64 - 8.0);
+        d.ctx.fill();
+
+        d.ctx.set_source_rgb(1.0, 1.0, 1.0);
+        d.ctx.rectangle(x, 8.0, sz as f64, sz as f64 - 8.0);
+        d.ctx.stroke();
+
         sz
     }
 }

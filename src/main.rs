@@ -58,8 +58,19 @@ fn main() {
         tv_sec: 5,
         tv_usec: 0,
     };
+
+    let layout = pangocairo::functions::create_layout(&ctx).unwrap();
+
+    // allow for the whole width of the bar, minus a small fixed amount
+    layout.set_width((size.wd - 20) * pango::SCALE);
+    // this should also be configurable, but Fira Mono is a good font
+    let mut font = pango::FontDescription::from_string("Fira Mono 18");
+    font.set_weight(pango::Weight::Bold);
+    layout.set_font_description(&font);
+
     // do an initial pass at drawing the bar!
-    draw(&ctx, &input, size);
+    draw(&ctx, &layout, &input, size);
+
 
     // we're gonna keep looping until we don't
     loop {
@@ -68,6 +79,7 @@ fn main() {
             libc::FD_ZERO(&mut fds);
             libc::FD_SET(window_fd, &mut fds);
             libc::FD_SET(stdin_fd, &mut fds);
+            timer.tv_sec = 5;
 
             // this will block until there's input on either of the
             // above FDs or until five seconds have passed, whichever comes first
@@ -86,10 +98,10 @@ fn main() {
             use std::io::BufRead;
             input = String::new();
             stdin.read_line(&mut input).unwrap();
-            if input == "" {
+            if input.len() == 0 {
                 break;
             }
-            draw(&ctx, &input, size);
+            draw(&ctx, &layout, &input, size);
         }
 
         // if we have X11 events, handle them. If any one was a quit
@@ -102,29 +114,20 @@ fn main() {
         }
 
         // otherwise, draw the thing!
-        draw(&ctx, &input, size);
+        draw(&ctx, &layout, &input, size);
     }
 }
 
 
 /// Do our Cairo drawing. This needs to be refactored to allow for
 /// more configurability in terms of what gets written!
-fn draw(ctx: &cairo::Context, left: &str, size: Size) {
+fn draw(ctx: &cairo::Context, layout: &pango::Layout, left: &str, size: Size) {
     // the background is... gray-ish? this'll be configurable eventually
     ctx.set_source_rgb(0.1, 0.1, 0.1);
     ctx.paint();
 
     // and the text is white
     ctx.set_source_rgb(1.0, 1.0, 1.0);
-
-    // Our pango layout handles placing and drawing text
-    let layout = pangocairo::functions::create_layout(&ctx).unwrap();
-    // allow for the whole width of the bar, minus a small fixed amount
-    layout.set_width((size.wd - 20) * pango::SCALE);
-    // this should also be configurable, but Fira Mono is a good font
-    let mut font = pango::FontDescription::from_string("Fira Mono 18");
-    font.set_weight(pango::Weight::Bold);
-    layout.set_font_description(&font);
 
     // set up a struct with everything that widgets need to draw
     let drawing = widgets::Drawing {
@@ -135,7 +138,7 @@ fn draw(ctx: &cairo::Context, left: &str, size: Size) {
     // set up our widgets
     let text = widgets::Text::new(left);
     let time = widgets::Time::new();
-    let sbox = widgets::SmallBox;
+    let bat = widgets::Battery;
 
     // and create a 'config' which tells us which widgets to draw from
     // the left, and which from the right
@@ -144,7 +147,7 @@ fn draw(ctx: &cairo::Context, left: &str, size: Size) {
             &text as &Widget,
         ],
         right: vec![
-            &sbox as &Widget,
+            &bat as &Widget,
             &time as &Widget,
         ],
     };
