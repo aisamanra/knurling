@@ -143,17 +143,26 @@ impl Battery {
 
 impl Widget for Battery {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
-        let amt = self.read_status().unwrap();
+        let amt = self.read_status();
         let sz = d.size.ht - 8;
         let x = loc.target_x(d, sz);
-        if amt < 0.1 {
-            d.ctx.set_source_rgb(1.0, 0.0, 0.0);
-        } else if amt < 0.5 {
-            d.ctx.set_source_rgb(1.0, 1.0, 0.0);
-        } else {
-            d.ctx.set_source_rgb(0.0, 1.0, 0.5);
+        match amt {
+            Ok(x) if x < 0.1 =>
+                d.ctx.set_source_rgb(1.0, 0.0, 0.0),
+            Ok(x) if x < 0.5 =>
+                d.ctx.set_source_rgb(1.0, 1.0, 0.0),
+            Ok(_) =>
+                d.ctx.set_source_rgb(0.0, 1.0, 0.5),
+            Err(_) =>
+                d.ctx.set_source_rgb(0.0, 0.0, 0.0),
         }
-        d.ctx.rectangle(x, 8.0, sz as f64 * amt, sz as f64 - 8.0);
+
+        d.ctx.rectangle(
+            x,
+            8.0,
+            sz as f64 * amt.unwrap_or(1.0),
+            sz as f64 - 8.0,
+        );
         d.ctx.fill();
 
         d.ctx.set_source_rgb(1.0, 1.0, 1.0);

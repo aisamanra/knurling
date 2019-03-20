@@ -150,7 +150,7 @@ fn draw(
     // set up our widgets
     let text = widgets::Text::new(left);
     let time = widgets::Time::new();
-    let bat = widgets::Battery::new().unwrap();
+    let bat = widgets::Battery::new()?;
 
     // and create a 'config' which tells us which widgets to draw from
     // the left, and which from the right
