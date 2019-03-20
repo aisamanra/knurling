@@ -16,10 +16,13 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn create() -> Display {
+    pub fn create() -> Result<Display, failure::Error> {
         let display = unsafe { xlib::XOpenDisplay(ptr::null()) };
+        if display.is_null() {
+            bail!("Unable to open X11 display");
+        }
         let screen = unsafe { xlib::XDefaultScreen(display) };
-        Display { display, screen }
+        Ok(Display { display, screen })
     }
 
     pub fn get_width(&mut self) -> i32 {
@@ -52,7 +55,7 @@ impl Window {
     pub fn create(
         d: Display,
         Size { wd: width, ht: height }: Size,
-    ) -> Window {
+    ) -> Result<Window, failure::Error> {
         unsafe {
             let display = d.display;
             let screen = d.screen;
@@ -68,14 +71,14 @@ impl Window {
                 xlib::XWhitePixel(display, screen),
             );
             let wm_protocols = {
-                let cstr = CString::new("WM_PROTOCOLS").unwrap();
+                let cstr = CString::new("WM_PROTOCOLS")?;
                 xlib::XInternAtom(display, cstr.as_ptr(), 0)
             };
             let wm_delete_window = {
-                let cstr = CString::new("WM_DELETE_WINDOW").unwrap();
+                let cstr = CString::new("WM_DELETE_WINDOW")?;
                 xlib::XInternAtom(display, cstr.as_ptr(), 0)
             };
-            Window {
+            Ok(Window {
                 display,
                 screen,
                 window,
@@ -83,18 +86,18 @@ impl Window {
                 wm_delete_window,
                 width,
                 height,
-            }
+            })
         }
     }
 
     /// for this application, we might eventually care about the
     /// mouse, so make sure we notify x11 that we care about those
-    pub fn set_input_masks(&mut self) {
+    pub fn set_input_masks(&mut self) -> Result<(), failure::Error> {
         let mut opcode = 0;
         let mut event = 0;
         let mut error = 0;
 
-        let xinput_str = CString::new("XInputExtension").unwrap();
+        let xinput_str = CString::new("XInputExtension")?;
         unsafe {
             xlib::XQueryExtension(
                 self.display,
@@ -128,13 +131,14 @@ impl Window {
             )
         } {
             status if status as u8 == xlib::Success => (),
-            err => panic!("Failed to select events {:?}", err)
+            err => bail!("Failed to select events {:?}", err)
         }
 
+        Ok(())
     }
 
-    pub fn set_protocols(&mut self) {
-        let mut protocols = [self.intern("WM_DELETE_WINDOW")];
+    pub fn set_protocols(&mut self) -> Result<(), failure::Error> {
+        let mut protocols = [self.intern("WM_DELETE_WINDOW")?];
         unsafe {
             xlib::XSetWMProtocols(
                 self.display,
@@ -143,17 +147,19 @@ impl Window {
                 protocols.len() as c_int,
             );
         }
+        Ok(())
     }
 
     /// Set the name of the window to the desired string
-    pub fn set_title(&mut self, name: &str) {
+    pub fn set_title(&mut self, name: &str) -> Result<(), failure::Error> {
         unsafe {
             xlib::XStoreName(
                 self.display,
                 self.window,
-                CString::new(name).unwrap().as_ptr(),
+                CString::new(name)?.as_ptr(),
             );
         }
+        Ok(())
     }
 
     /// Map the window to the screen
@@ -164,16 +170,21 @@ impl Window {
     }
 
     /// Intern a string in the x server
-    pub fn intern(&mut self, s: &str) -> u64 {
+    pub fn intern(&mut self, s: &str) -> Result<u64, failure::Error> {
         unsafe {
-            let cstr = CString::new(s).unwrap();
-            xlib::XInternAtom(self.display, cstr.as_ptr(), 0)
+            let cstr = CString::new(s)?;
+            Ok(xlib::XInternAtom(self.display, cstr.as_ptr(), 0))
         }
     }
 
     /// Modify the supplied property to the noted value.
-    pub fn change_property<T: XProperty>(&mut self, prop: &str, val: &[T]) {
-        let prop = self.intern(prop);
+    pub fn change_property<T: XProperty>(
+        &mut self,
+        prop: &str,
+        val: &[T]
+    ) -> Result<(), failure::Error>
+    {
+        let prop = self.intern(prop)?;
         unsafe {
             let len = val.len();
             T::with_ptr(val, self, |w, typ, ptr| {
@@ -187,8 +198,9 @@ impl Window {
                     ptr,
                     len as c_int,
                 );
-            });
+            })?;
         }
+        Ok(())
     }
 
     /// Get the Cairo drawing surface corresponding to the whole
@@ -280,7 +292,7 @@ pub trait XProperty : Sized {
         xs: &[Self],
         w: &mut Window,
         f: impl FnOnce(&mut Window, u64, *const u8),
-    );
+    ) -> Result<(), failure::Error> ;
 }
 
 impl XProperty for i64 {
@@ -288,8 +300,9 @@ impl XProperty for i64 {
         xs: &[Self],
         w: &mut Window,
         f: impl FnOnce(&mut Window, u64, *const u8),
-    ) {
-        f(w, xlib::XA_CARDINAL, unsafe { mem::transmute(xs.as_ptr()) })
+    ) -> Result<(), failure::Error> {
+        f(w, xlib::XA_CARDINAL, unsafe { mem::transmute(xs.as_ptr()) });
+        Ok(())
     }
 }
 
@@ -298,9 +311,11 @@ impl XProperty for &str {
         xs: &[Self],
         w: &mut Window,
         f: impl FnOnce(&mut Window, u64, *const u8),
-    ) {
-        let xs: Vec<u64> = xs.iter().map(|s| w.intern(s)).collect();
-        f(w, xlib::XA_ATOM, unsafe { mem::transmute(xs.as_ptr()) })
+    ) -> Result<(), failure::Error> {
+        let xs: Result<Vec<u64>, failure::Error> =
+            xs.iter().map(|s| w.intern(s)).collect();
+        f(w, xlib::XA_ATOM, unsafe { mem::transmute(xs?.as_ptr()) });
+        Ok(())
     }
 }
 

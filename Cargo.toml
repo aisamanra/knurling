@@ -11,6 +11,7 @@ pangocairo = "0.7"
 # time = "0.1"
 chrono = "*"
 libc = "0.2"
+failure = "*"
 
 [dependencies.cairo-sys-rs]
 version = "0.8"

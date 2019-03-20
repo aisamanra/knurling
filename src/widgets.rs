@@ -105,36 +105,45 @@ impl Widget for SmallBox {
 
 
 
-pub struct Battery;
+pub struct Battery {
+    file_list: Vec<std::path::PathBuf>,
+}
 
 impl Battery {
-    fn read_status(&self) -> f64 {
+    pub fn new() -> Result<Battery, failure::Error> {
         use std::fs;
 
         let mut batteries = Vec::new();
-        for entry in fs::read_dir("/sys/class/power_supply").unwrap() {
-            let e = entry.unwrap();
+        for entry in fs::read_dir("/sys/class/power_supply")? {
+            let e = entry?;
             if e.file_name().to_string_lossy().starts_with("BAT") {
-                batteries.push(e.path());
+                let mut path = e.path();
+                path.push("capacity");
+                batteries.push(path);
             }
         }
 
-        let mut charges: Vec<i32> = Vec::new();
-        for mut bat in batteries {
-            bat.push("capacity");
-            let r = fs::read_to_string(bat).unwrap();
-            charges.push(r.trim().parse::<i32>().unwrap());
-        }
+        Ok(Battery {
+            file_list: batteries,
+        })
+    }
+
+    fn read_status(&self) -> Result<f64, failure::Error> {
+        let charges: Result<Vec<i32>, failure::Error> =
+            self.file_list.iter().map(|path| {
+            Ok(std::fs::read_to_string(path)?.trim().parse()?)
+            }).collect();
+        let charges = charges?;
 
         let len = charges.len() as f64;
         let sum: i32 = charges.into_iter().sum();
-        sum as f64 / len / 100.0
+        Ok(sum as f64 / len / 100.0)
     }
 }
 
 impl Widget for Battery {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
-        let amt = self.read_status();
+        let amt = self.read_status().unwrap();
         let sz = d.size.ht - 8;
         let x = loc.target_x(d, sz);
         if amt < 0.1 {

@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate failure;
+
 mod widgets;
 mod window;
 
@@ -7,32 +10,32 @@ use pango::LayoutExt;
 use widgets::Widget;
 use window::{Display,Event,Size,Window};
 
-fn main() {
+fn main() -> Result<(), failure::Error> {
     // set up the display and the window
-    let mut d = Display::create();
+    let mut d = Display::create()?;
     let size = Size {
         wd: d.get_width(),
         // TODO: this should be a function of font size
         ht: 36,
     };
-    let mut w = Window::create(d, size);
+    let mut w = Window::create(d, size)?;
     // set some window-manager properties: this is a dock
-    w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"]);
+    w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
     // ...and should push other windows out of the way
-    w.change_property("_NET_WM_STRUT", &[0i64, 0, size.ht as i64, 0],);
+    w.change_property("_NET_WM_STRUT", &[0i64, 0, size.ht as i64, 0])?;
     w.change_property(
         "_NET_WM_STRUT_PARTIAL",
         &[ 0, 0, size.ht as i64, 0,
            0, 0, 0, 0,
            0, size.wd as i64, 0, 0,
         ],
-    );
+    )?;
 
     // we won't ever see this, but for good measure.
-    w.set_title("rbar");
+    w.set_title("rbar")?;
     // we care about some input events!
-    w.set_input_masks();
-    w.set_protocols();
+    w.set_input_masks()?;
+    w.set_protocols()?;
     // and now show it!
     w.map();
 
@@ -59,7 +62,8 @@ fn main() {
         tv_usec: 0,
     };
 
-    let layout = pangocairo::functions::create_layout(&ctx).unwrap();
+    let layout = pangocairo::functions::create_layout(&ctx)
+        .ok_or(format_err!("foo"))?;
 
     // allow for the whole width of the bar, minus a small fixed amount
     layout.set_width((size.wd - 20) * pango::SCALE);
@@ -69,7 +73,7 @@ fn main() {
     layout.set_font_description(&font);
 
     // do an initial pass at drawing the bar!
-    draw(&ctx, &layout, &input, size);
+    draw(&ctx, &layout, &input, size)?;
 
 
     // we're gonna keep looping until we don't
@@ -97,11 +101,11 @@ fn main() {
         if unsafe { libc::FD_ISSET(stdin_fd, &mut fds) } {
             use std::io::BufRead;
             input = String::new();
-            stdin.read_line(&mut input).unwrap();
+            stdin.read_line(&mut input)?;
             if input.len() == 0 {
                 break;
             }
-            draw(&ctx, &layout, &input, size);
+            draw(&ctx, &layout, &input, size)?;
         }
 
         // if we have X11 events, handle them. If any one was a quit
@@ -114,14 +118,22 @@ fn main() {
         }
 
         // otherwise, draw the thing!
-        draw(&ctx, &layout, &input, size);
+        draw(&ctx, &layout, &input, size)?;
     }
+
+    Ok(())
 }
 
 
 /// Do our Cairo drawing. This needs to be refactored to allow for
 /// more configurability in terms of what gets written!
-fn draw(ctx: &cairo::Context, layout: &pango::Layout, left: &str, size: Size) {
+fn draw(
+    ctx: &cairo::Context,
+    layout: &pango::Layout,
+    left: &str,
+    size: Size)
+    -> Result<(), failure::Error>
+{
     // the background is... gray-ish? this'll be configurable eventually
     ctx.set_source_rgb(0.1, 0.1, 0.1);
     ctx.paint();
@@ -138,7 +150,7 @@ fn draw(ctx: &cairo::Context, layout: &pango::Layout, left: &str, size: Size) {
     // set up our widgets
     let text = widgets::Text::new(left);
     let time = widgets::Time::new();
-    let bat = widgets::Battery;
+    let bat = widgets::Battery::new().unwrap();
 
     // and create a 'config' which tells us which widgets to draw from
     // the left, and which from the right
@@ -154,4 +166,5 @@ fn draw(ctx: &cairo::Context, layout: &pango::Layout, left: &str, size: Size) {
     // and draw them!
     config.draw(&drawing);
 
+    Ok(())
 }
