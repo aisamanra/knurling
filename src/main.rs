@@ -13,14 +13,9 @@ use window::{Display,Event,Size,Window};
 fn main() -> Result<(), failure::Error> {
     // set up the display and the window
     let mut d = Display::create()?;
-    let size = Size {
-        wd: d.get_width(),
-        // TODO: this should be a function of font size
-        ht: 36,
-    };
     let mut ws = Vec::new();
     for (x_off, wd) in d.get_widths()? {
-        let size = Size { wd, ht: 36 };
+        let size = Size { wd, ht: 36, xo: x_off, yo: 0 };
         let mut w = Window::create(&d, size)?;
         // set some window-manager properties: this is a dock
         w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
@@ -84,7 +79,7 @@ fn main() -> Result<(), failure::Error> {
         // do an initial pass at drawing the bar!
         draw(&ctx, &layout, &input, w.size())?;
 
-        ctxs.push((ctx, layout));
+        ctxs.push((ctx, layout, w.size()));
     }
 
 
@@ -120,8 +115,8 @@ fn main() -> Result<(), failure::Error> {
             if input.len() == 0 {
                 break;
             }
-            for (ctx, layout) in ctxs.iter() {
-                draw(&ctx, &layout, &input, size)?;
+            for (ctx, layout, sz) in ctxs.iter() {
+                draw(&ctx, &layout, &input, *sz)?;
             }
         }
 
@@ -136,9 +131,9 @@ fn main() -> Result<(), failure::Error> {
             }
         }
 
-        for (ctx, layout) in ctxs.iter() {
+        for (ctx, layout, sz) in ctxs.iter() {
             // otherwise, draw the thing!
-            draw(&ctx, &layout, &input, size)?;
+            draw(&ctx, &layout, &input, *sz)?;
         }
     }
 

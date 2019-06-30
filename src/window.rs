@@ -8,6 +8,8 @@ use std::os::raw::{c_int,c_uchar};
 pub struct Size {
     pub wd: i32,
     pub ht: i32,
+    pub xo: i32,
+    pub yo: i32,
 }
 
 pub struct Display {
@@ -79,15 +81,15 @@ impl<'t> Window<'t> {
     /// width and height
     pub fn create(
         display: &'t Display,
-        Size { wd: width, ht: height }: Size,
+        Size { wd: width, ht: height, xo, yo }: Size,
     ) -> Result<Window<'t>, failure::Error> {
         unsafe {
             let screen = display.screen;
             let window = xlib::XCreateSimpleWindow(
                 display.display,
                 xlib::XRootWindow(display.display, screen),
-                0,
-                0,
+                xo as i32,
+                yo as i32,
                 width as u32,
                 height as u32,
                 1,
@@ -300,7 +302,7 @@ impl<'t> Window<'t> {
     }
 
     pub fn size(&self) -> Size {
-        Size { wd: self.width, ht: self.height }
+        Size { wd: self.width, ht: self.height, xo: 0, yo: 0 }
     }
 }
 
