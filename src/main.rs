@@ -19,9 +19,9 @@ fn main() -> Result<(), failure::Error> {
         ht: 36,
     };
     let mut ws = Vec::new();
-    for (x_off, wd) in in d.get_widths() {
+    for (x_off, wd) in d.get_widths()? {
         let size = Size { wd, ht: 36 };
-        let mut w = Window::create(d, size)?;
+        let mut w = Window::create(&d, size)?;
         // set some window-manager properties: this is a dock
         w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
         // ...and should push other windows out of the way
@@ -44,22 +44,19 @@ fn main() -> Result<(), failure::Error> {
         ws.push(w);
     }
 
-    // let's grab the cairo context here
-    let surf = w.get_cairo_surface();
-    let ctx = cairo::Context::new(&surf);
-
     // we do some grossness with file descriptors later, so we need
     // the file descriptors we care about here
-    let window_fds = ws.map{ |w| w.get_fd() };
+    let window_fds: Vec<i32> = ws.iter_mut().map({ |w| w.get_fd() }).collect();
     let stdin_fd = std::io::stdin().as_raw_fd();
-
     let mut fds = unsafe { std::mem::uninitialized() };
+
     // To begin with, our left-hand side---which normally is whatever
     // was last passed in on stdin---will start as a generic
     // message...
     let mut input = format!("Loading...");
     // And let's get a buffered stdin handle now
     let mut stdin = std::io::BufReader::new(std::io::stdin());
+
     // In the absence of other events, let's refresh every five
     // seconds. Or whatever.
     let mut timer = libc::timeval {
@@ -67,27 +64,38 @@ fn main() -> Result<(), failure::Error> {
         tv_usec: 0,
     };
 
-    let layout = pangocairo::functions::create_layout(&ctx)
-        .ok_or(format_err!("foo"))?;
-
-    // allow for the whole width of the bar, minus a small fixed amount
-    layout.set_width((size.wd - 20) * pango::SCALE);
-    // this should also be configurable, but Fira Mono is a good font
-    let mut font = pango::FontDescription::from_string("Fira Mono 18");
-    font.set_weight(pango::Weight::Bold);
-    layout.set_font_description(&font);
-
-    // do an initial pass at drawing the bar!
-    draw(&ctx, &layout, &input, size)?;
+    let mut ctxs = Vec::new();
+    for w in ws.iter_mut() {
+        // let's grab the cairo context here
+        let surf = w.get_cairo_surface();
+        let ctx = cairo::Context::new(&surf);
 
 
+        let layout = pangocairo::functions::create_layout(&ctx)
+            .ok_or(format_err!("unable to create layout"))?;
+
+        // allow for the whole width of the bar, minus a small fixed amount
+        layout.set_width((w.width - 20) * pango::SCALE);
+        // this should also be configurable, but Fira Mono is a good font
+        let mut font = pango::FontDescription::from_string("Fira Mono 18");
+        font.set_weight(pango::Weight::Bold);
+        layout.set_font_description(&font);
+
+        // do an initial pass at drawing the bar!
+        draw(&ctx, &layout, &input, w.size())?;
+
+        ctxs.push((ctx, layout));
+    }
+
+
+    let max_fd = window_fds.iter().max().unwrap_or(&0) + 1;
     // we're gonna keep looping until we don't
     loop {
         unsafe {
             // set up the FD set to be the X11 fd and the state of stdin
             libc::FD_ZERO(&mut fds);
-            for fd in window_fds {
-                libc::FD_SET(fd, &mut fds);
+            for fd in window_fds.iter() {
+                libc::FD_SET(*fd, &mut fds);
             }
             libc::FD_SET(stdin_fd, &mut fds);
             timer.tv_sec = 5;
@@ -95,7 +103,7 @@ fn main() -> Result<(), failure::Error> {
             // this will block until there's input on either of the
             // above FDs or until five seconds have passed, whichever comes first
             libc::select(
-                window_fd + 1,
+                max_fd,
                 &mut fds,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
@@ -112,20 +120,26 @@ fn main() -> Result<(), failure::Error> {
             if input.len() == 0 {
                 break;
             }
-            draw(&ctx, &layout, &input, size)?;
+            for (ctx, layout) in ctxs.iter() {
+                draw(&ctx, &layout, &input, size)?;
+            }
         }
 
         // if we have X11 events, handle them. If any one was a quit
         // event, then just... quit.
-        while w.has_events() {
-            match w.handle() {
-                Some(Event::QuitEvent) => break,
-                _e => (),
+        for w in ws.iter_mut() {
+            while w.has_events() {
+                match w.handle() {
+                    Some(Event::QuitEvent) => break,
+                    _e => (),
+                }
             }
         }
 
-        // otherwise, draw the thing!
-        draw(&ctx, &layout, &input, size)?;
+        for (ctx, layout) in ctxs.iter() {
+            // otherwise, draw the thing!
+            draw(&ctx, &layout, &input, size)?;
+        }
     }
 
     Ok(())

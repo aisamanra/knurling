@@ -50,10 +50,18 @@ impl Display {
     }
 }
 
+impl Drop for Display {
+    fn drop(&mut self) {
+        unsafe {
+            xlib::XCloseDisplay(self.display);
+        }
+    }
+}
+
 /// All the state needed to keep around to run this sort of
 /// application!
-pub struct Window {
-    pub display: *mut xlib::_XDisplay,
+pub struct Window<'t> {
+    pub display: &'t Display,
     pub screen: i32,
     pub window: u64,
     // these two are interned strings kept around because we want to
@@ -66,34 +74,33 @@ pub struct Window {
     pub height: i32,
 }
 
-impl Window {
+impl<'t> Window<'t> {
     /// Create a new Window from a given Display and with the desire
     /// width and height
     pub fn create(
-        d: Display,
+        display: &'t Display,
         Size { wd: width, ht: height }: Size,
-    ) -> Result<Window, failure::Error> {
+    ) -> Result<Window<'t>, failure::Error> {
         unsafe {
-            let display = d.display;
-            let screen = d.screen;
+            let screen = display.screen;
             let window = xlib::XCreateSimpleWindow(
-                display,
-                xlib::XRootWindow(display, screen),
+                display.display,
+                xlib::XRootWindow(display.display, screen),
                 0,
                 0,
                 width as u32,
                 height as u32,
                 1,
-                xlib::XBlackPixel(display, screen),
-                xlib::XWhitePixel(display, screen),
+                xlib::XBlackPixel(display.display, screen),
+                xlib::XWhitePixel(display.display, screen),
             );
             let wm_protocols = {
                 let cstr = CString::new("WM_PROTOCOLS")?;
-                xlib::XInternAtom(display, cstr.as_ptr(), 0)
+                xlib::XInternAtom(display.display, cstr.as_ptr(), 0)
             };
             let wm_delete_window = {
                 let cstr = CString::new("WM_DELETE_WINDOW")?;
-                xlib::XInternAtom(display, cstr.as_ptr(), 0)
+                xlib::XInternAtom(display.display, cstr.as_ptr(), 0)
             };
             Ok(Window {
                 display,
@@ -117,7 +124,7 @@ impl Window {
         let xinput_str = CString::new("XInputExtension")?;
         unsafe {
             xlib::XQueryExtension(
-                self.display,
+                self.display.display,
                 xinput_str.as_ptr(),
                 &mut opcode,
                 &mut event,
@@ -141,7 +148,7 @@ impl Window {
 
         match unsafe {
             xinput2::XISelectEvents(
-                self.display,
+                self.display.display,
                 self.window,
                 &mut input_event_mask,
                 1,
@@ -158,7 +165,7 @@ impl Window {
         let mut protocols = [self.intern("WM_DELETE_WINDOW")?];
         unsafe {
             xlib::XSetWMProtocols(
-                self.display,
+                self.display.display,
                 self.window,
                 protocols.as_mut_ptr(),
                 protocols.len() as c_int,
@@ -171,7 +178,7 @@ impl Window {
     pub fn set_title(&mut self, name: &str) -> Result<(), failure::Error> {
         unsafe {
             xlib::XStoreName(
-                self.display,
+                self.display.display,
                 self.window,
                 CString::new(name)?.as_ptr(),
             );
@@ -182,7 +189,7 @@ impl Window {
     /// Map the window to the screen
     pub fn map(&mut self) {
         unsafe {
-            xlib::XMapWindow(self.display, self.window);
+            xlib::XMapWindow(self.display.display, self.window);
         }
     }
 
@@ -190,7 +197,7 @@ impl Window {
     pub fn intern(&mut self, s: &str) -> Result<u64, failure::Error> {
         unsafe {
             let cstr = CString::new(s)?;
-            Ok(xlib::XInternAtom(self.display, cstr.as_ptr(), 0))
+            Ok(xlib::XInternAtom(self.display.display, cstr.as_ptr(), 0))
         }
     }
 
@@ -206,7 +213,7 @@ impl Window {
             let len = val.len();
             T::with_ptr(val, self, |w, typ, ptr| {
                 xlib::XChangeProperty(
-                    w.display,
+                    w.display.display,
                     w.window,
                     prop,
                     typ,
@@ -225,9 +232,9 @@ impl Window {
     pub fn get_cairo_surface(&mut self) -> cairo::Surface {
         unsafe {
             let s = cairo_sys::cairo_xlib_surface_create(
-                self.display,
+                self.display.display,
                 self.window,
-                xlib::XDefaultVisual(self.display, self.screen),
+                xlib::XDefaultVisual(self.display.display, self.screen),
                 self.width,
                 self.height,
             );
@@ -241,7 +248,7 @@ impl Window {
     /// will also only return values for events we care about
     pub fn handle(&mut self) -> Option<Event> {
         let mut e = unsafe { mem::uninitialized() };
-        unsafe { xlib::XNextEvent(self.display, &mut e) };
+        unsafe { xlib::XNextEvent(self.display.display, &mut e) };
         match e.get_type() {
             // Is it a quit event? We gotta do some tedious string
             // comparison to find out
@@ -261,7 +268,7 @@ impl Window {
             // otherwise, it might be a mouse press event
             xlib::GenericEvent => {
                 let mut cookie: xlib::XGenericEventCookie = From::from(e);
-                unsafe { xlib::XGetEventData(self.display, &mut cookie) };
+                unsafe { xlib::XGetEventData(self.display.display, &mut cookie) };
                     match cookie.evtype {
                         xinput2::XI_ButtonPress => {
                             let data: &xinput2::XIDeviceEvent =
@@ -280,7 +287,7 @@ impl Window {
     /// True if there are any pending events.
     pub fn has_events(&mut self) -> bool {
         unsafe {
-            xlib::XPending(self.display) != 0
+            xlib::XPending(self.display.display) != 0
         }
     }
 
@@ -288,17 +295,12 @@ impl Window {
     /// surface to wait on events? This lets us use select on it!
     pub fn get_fd(&mut self) -> i32 {
         unsafe {
-            xlib::XConnectionNumber(self.display)
+            xlib::XConnectionNumber(self.display.display)
         }
     }
-}
 
-/// Always close the display when we're done.
-impl Drop for Window {
-    fn drop(&mut self) {
-        unsafe {
-            xlib::XCloseDisplay(self.display);
-        }
+    pub fn size(&self) -> Size {
+        Size { wd: self.width, ht: self.height }
     }
 }
 
