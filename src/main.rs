@@ -18,28 +18,31 @@ fn main() -> Result<(), failure::Error> {
         // TODO: this should be a function of font size
         ht: 36,
     };
-    let screens = d.get_widths();
-    println!("{:?}", screens);
-    let mut w = Window::create(d, size)?;
-    // set some window-manager properties: this is a dock
-    w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
-    // ...and should push other windows out of the way
-    w.change_property("_NET_WM_STRUT", &[0i64, 0, size.ht as i64, 0])?;
-    w.change_property(
-        "_NET_WM_STRUT_PARTIAL",
-        &[ 0, 0, size.ht as i64, 0,
-           0, 0, 0, 0,
-           0, size.wd as i64, 0, 0,
-        ],
-    )?;
+    let mut ws = Vec::new();
+    for (x_off, wd) in in d.get_widths() {
+        let size = Size { wd, ht: 36 };
+        let mut w = Window::create(d, size)?;
+        // set some window-manager properties: this is a dock
+        w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
+        // ...and should push other windows out of the way
+        w.change_property("_NET_WM_STRUT", &[x_off as i64, 0, size.ht as i64, 0])?;
+        w.change_property(
+            "_NET_WM_STRUT_PARTIAL",
+            &[ 0, 0, size.ht as i64, 0,
+               0, 0, 0, 0,
+               0, size.wd as i64, 0, 0,
+            ],
+        )?;
 
-    // we won't ever see this, but for good measure.
-    w.set_title("rbar")?;
-    // we care about some input events!
-    w.set_input_masks()?;
-    w.set_protocols()?;
-    // and now show it!
-    w.map();
+        // we won't ever see this, but for good measure.
+        w.set_title("rbar")?;
+        // we care about some input events!
+        w.set_input_masks()?;
+        w.set_protocols()?;
+        // and now show it!
+        w.map();
+        ws.push(w);
+    }
 
     // let's grab the cairo context here
     let surf = w.get_cairo_surface();
@@ -47,7 +50,7 @@ fn main() -> Result<(), failure::Error> {
 
     // we do some grossness with file descriptors later, so we need
     // the file descriptors we care about here
-    let window_fd = w.get_fd();
+    let window_fds = ws.map{ |w| w.get_fd() };
     let stdin_fd = std::io::stdin().as_raw_fd();
 
     let mut fds = unsafe { std::mem::uninitialized() };
@@ -83,7 +86,9 @@ fn main() -> Result<(), failure::Error> {
         unsafe {
             // set up the FD set to be the X11 fd and the state of stdin
             libc::FD_ZERO(&mut fds);
-            libc::FD_SET(window_fd, &mut fds);
+            for fd in window_fds {
+                libc::FD_SET(fd, &mut fds);
+            }
             libc::FD_SET(stdin_fd, &mut fds);
             timer.tv_sec = 5;
 
