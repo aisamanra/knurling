@@ -19,4 +19,4 @@ features = ["xlib"]
 
 [dependencies.x11]
 version = "2.18"
-features = ["xlib", "xinput"]
+features = ["xlib", "xinput", "xrandr", "xinerama"]

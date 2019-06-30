@@ -31,6 +31,23 @@ impl Display {
             xlib::XWidthOfScreen(s)
         }
     }
+
+    pub fn get_widths(&mut self) -> Result<Vec<(i32,i32)>, failure::Error> {
+        if unsafe { x11::xinerama::XineramaIsActive(self.display) != 0 } {
+            let mut screens = 0;
+            let screen_info = unsafe { x11::xinerama::XineramaQueryScreens(self.display, &mut screens) };
+            let mut widths = Vec::new();
+            for i in 0..screens {
+                unsafe {
+                    let si = screen_info.offset(i as isize).as_ref().ok_or(format_err!("bad pointer"))?;
+                    widths.push((si.x_org as i32, si.width as i32));
+                }
+            }
+            Ok(widths)
+        } else {
+            Ok(vec![(0, self.get_width())])
+        }
+    }
 }
 
 /// All the state needed to keep around to run this sort of

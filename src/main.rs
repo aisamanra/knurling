@@ -18,6 +18,8 @@ fn main() -> Result<(), failure::Error> {
         // TODO: this should be a function of font size
         ht: 36,
     };
+    let screens = d.get_widths();
+    println!("{:?}", screens);
     let mut w = Window::create(d, size)?;
     // set some window-manager properties: this is a dock
     w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
@@ -150,7 +152,7 @@ fn draw(
     // set up our widgets
     let text = widgets::Text::new(left);
     let time = widgets::Time::new();
-    let bat = widgets::Battery::new()?;
+    // let bat = widgets::Battery::new()?;
 
     // and create a 'config' which tells us which widgets to draw from
     // the left, and which from the right
@@ -159,7 +161,7 @@ fn draw(
             &text as &Widget,
         ],
         right: vec![
-            &bat as &Widget,
+            // &bat as &Widget,
             &time as &Widget,
         ],
     };
