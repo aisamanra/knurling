@@ -18,7 +18,7 @@ impl Located {
     fn draw_text(&self, d: &Drawing, msg: &str) -> i32 {
         d.lyt.set_text(msg);
         let (w, _) = d.lyt.get_size();
-        d.ctx.move_to(self.target_x(d, w / pango::SCALE), 4.0);
+        d.ctx.move_to(self.target_x(d, w / pango::SCALE), d.buffer);
         pangocairo::functions::show_layout(d.ctx, d.lyt);
         w / pango::SCALE
     }
@@ -36,6 +36,7 @@ pub struct Drawing<'t> {
     pub lyt: &'t pango::Layout,
     pub size: Size,
     pub stdin: &'t str,
+    pub buffer: f64,
 }
 
 pub trait Widget {
@@ -83,9 +84,9 @@ pub struct SmallBox;
 
 impl Widget for SmallBox {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
-        let sz = d.size.ht - 8;
+        let sz = d.size.ht - (d.buffer as i32 * 2);
         let x = loc.target_x(d, sz);
-        d.ctx.rectangle(x, 4.0, sz as f64, sz as f64);
+        d.ctx.rectangle(x, d.buffer, sz as f64, sz as f64);
         d.ctx.fill();
         sz
     }
@@ -149,7 +150,7 @@ impl Battery {
 impl Widget for Battery {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
         let amt = self.read_status();
-        let sz = d.size.ht - 8;
+        let sz = d.size.ht - (d.buffer as i32 * 2);
         let x = loc.target_x(d, sz);
         match amt {
             _ if self.is_charging().unwrap_or(false) =>
@@ -166,14 +167,14 @@ impl Widget for Battery {
 
         d.ctx.rectangle(
             x,
-            8.0,
+            d.buffer * 2.0,
             sz as f64 * amt.unwrap_or(1.0),
-            sz as f64 - 8.0,
+            sz as f64 - d.buffer * 2.0,
         );
         d.ctx.fill();
 
         d.ctx.set_source_rgb(1.0, 1.0, 1.0);
-        d.ctx.rectangle(x, 8.0, sz as f64, sz as f64 - 8.0);
+        d.ctx.rectangle(x, d.buffer * 2.0, sz as f64, sz as f64 - (d.buffer * 2.0));
         d.ctx.stroke();
 
         sz

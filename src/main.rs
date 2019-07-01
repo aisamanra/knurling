@@ -15,7 +15,6 @@ fn main() -> Result<(), failure::Error> {
     // set up the display and the window
     let config = config::Config::find_config()?;
     let height = config.get_height();
-    println!("height is {}", height);
 
     let mut d = Display::create()?;
     let mut ws = Vec::new();

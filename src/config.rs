@@ -14,6 +14,8 @@ pub struct Config {
     bg_color: (f64, f64, f64),
     fg_color: (f64, f64, f64),
     font: String,
+    height: i32,
+    buffer: i32,
 }
 
 pub fn color_from_hex(input: &str) -> Result<(f64, f64, f64), failure::Error> {
@@ -44,6 +46,8 @@ impl Config {
             bg_color: defaults::BG_COLOR,
             fg_color: defaults::FG_COLOR,
             font: format!("{} {}", defaults::FONT_FAMILY, defaults::FONT_SIZE),
+            height: 0,
+            buffer: 0,
         };
         let table = input.as_table().ok_or(format_err!("invalid config"))?;
         let widgets = &table["widgets"];
@@ -69,6 +73,11 @@ impl Config {
             conf.font = font.as_str().ok_or(format_err!("`font` not a str"))?.to_string();
         }
         conf.right.reverse();
+
+        let text_height = conf.calc_text_height();
+        let buffer = text_height / 4;
+        conf.height = conf.calc_text_height() + buffer * 2;
+        conf.buffer = buffer;
         Ok(conf)
     }
 
@@ -105,6 +114,7 @@ impl Config {
             lyt: &layout,
             size,
             stdin,
+            buffer: self.buffer as f64,
         };
 
         let mut offset = 10;
@@ -123,7 +133,11 @@ impl Config {
         &self.font
     }
 
-    pub fn get_height(&self) -> i32 {
+    pub fn get_height(&self) -> i32{
+        self.height
+    }
+
+    fn calc_text_height(&self) -> i32 {
         use pango::LayoutExt;
 
         // we get the height here by making a fake surface, rendering
@@ -138,6 +152,6 @@ impl Config {
         layout.set_font_description(&font);
         layout.set_text("lj");
         let (_, h) = layout.get_size();
-        (h / pango::SCALE) + 8
+        (h / pango::SCALE)
     }
 }
