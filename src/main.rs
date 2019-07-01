@@ -74,7 +74,7 @@ fn main() -> Result<(), failure::Error> {
         // allow for the whole width of the bar, minus a small fixed amount
         layout.set_width((w.width - 20) * pango::SCALE);
         // this should also be configurable, but Fira Mono is a good font
-        let mut font = pango::FontDescription::from_string("Fira Mono 18");
+        let mut font = pango::FontDescription::from_string(config.font());
         font.set_weight(pango::Weight::Bold);
         layout.set_font_description(&font);
 
