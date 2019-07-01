@@ -92,7 +92,17 @@ impl Widget for SmallBox {
     }
 }
 
+pub struct Caesura;
 
+impl Widget for Caesura {
+    fn draw(&self, d: &Drawing, loc: Located) -> i32 {
+        let x = loc.target_x(d, 1);
+        d.ctx.move_to(x, d.buffer);
+        d.ctx.line_to(x, d.size.ht as f64 - d.buffer);
+        d.ctx.stroke();
+        2
+    }
+}
 
 pub struct Battery {
     file_list: Vec<std::path::PathBuf>,

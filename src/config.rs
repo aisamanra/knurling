@@ -57,12 +57,14 @@ impl Config {
             match section["name"].as_str().ok_or(format_err!(""))? {
                 "box" => target.push(Box::new(w::SmallBox)),
                 "battery" => target.push(Box::new(w::Battery::new()?)),
+                "caesura" => target.push(Box::new(w::Caesura)),
                 "sep" => target = &mut conf.right,
                 "stdin" => target.push(Box::new(w::Stdin::new())),
                 "time" => target.push(Box::new(w::Time::new())),
                 _ => (),
             }
         }
+
         if let Some(color) = table.get("background") {
             conf.bg_color = color_from_hex(color.as_str().ok_or(format_err!("`background` not a str"))?)?;
         }
