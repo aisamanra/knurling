@@ -1,17 +1,19 @@
 #[macro_use]
 extern crate failure;
 
+mod config;
 mod widgets;
 mod window;
 
 use std::os::unix::io::AsRawFd;
 use pango::LayoutExt;
 
-use widgets::Widget;
-use window::{Display,Event,Size,Window};
+use widgets::Size;
+use window::{Display,Event,Window};
 
 fn main() -> Result<(), failure::Error> {
     // set up the display and the window
+    let config = config::Config::from_file("sample.toml")?;
     let mut d = Display::create()?;
     let mut ws = Vec::new();
     for (x_off, wd) in d.get_widths()? {
@@ -77,7 +79,7 @@ fn main() -> Result<(), failure::Error> {
         layout.set_font_description(&font);
 
         // do an initial pass at drawing the bar!
-        draw(&ctx, &layout, &input, w.size())?;
+        config.draw(&ctx, &layout, &input, w.size())?;
 
         ctxs.push((ctx, layout, w.size()));
     }
@@ -116,7 +118,7 @@ fn main() -> Result<(), failure::Error> {
                 break;
             }
             for (ctx, layout, sz) in ctxs.iter() {
-                draw(&ctx, &layout, &input, *sz)?;
+                config.draw(&ctx, &layout, &input, *sz)?;
             }
         }
 
@@ -133,54 +135,9 @@ fn main() -> Result<(), failure::Error> {
 
         for (ctx, layout, sz) in ctxs.iter() {
             // otherwise, draw the thing!
-            draw(&ctx, &layout, &input, *sz)?;
+            config.draw(&ctx, &layout, &input, *sz)?;
         }
     }
-
-    Ok(())
-}
-
-
-/// Do our Cairo drawing. This needs to be refactored to allow for
-/// more configurability in terms of what gets written!
-fn draw(
-    ctx: &cairo::Context,
-    layout: &pango::Layout,
-    left: &str,
-    size: Size)
-    -> Result<(), failure::Error>
-{
-    // the background is... gray-ish? this'll be configurable eventually
-    ctx.set_source_rgb(0.1, 0.1, 0.1);
-    ctx.paint();
-
-    // and the text is white
-    ctx.set_source_rgb(1.0, 1.0, 1.0);
-
-    // set up a struct with everything that widgets need to draw
-    let drawing = widgets::Drawing {
-        ctx: ctx,
-        lyt: &layout,
-        size,
-    };
-    // set up our widgets
-    let text = widgets::Text::new(left);
-    let time = widgets::Time::new();
-    // let bat = widgets::Battery::new()?;
-
-    // and create a 'config' which tells us which widgets to draw from
-    // the left, and which from the right
-    let config = widgets::Config {
-        left: vec![
-            &text as &Widget,
-        ],
-        right: vec![
-            // &bat as &Widget,
-            &time as &Widget,
-        ],
-    };
-    // and draw them!
-    config.draw(&drawing);
 
     Ok(())
 }

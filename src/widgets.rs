@@ -1,28 +1,17 @@
-use crate::window::Size;
 use pango::LayoutExt;
+
+#[derive(Debug,Clone,Copy)]
+pub struct Size {
+    pub wd: i32,
+    pub ht: i32,
+    pub xo: i32,
+    pub yo: i32,
+}
 
 #[derive(Debug,Clone,Copy)]
 pub enum Located {
     FromLeft(i32),
     FromRight(i32),
-}
-
-pub struct Config<'r> {
-    pub left: Vec<&'r Widget>,
-    pub right: Vec<&'r Widget>,
-}
-
-impl<'r> Config<'r> {
-    pub fn draw(&self, d: &Drawing) {
-        let mut offset = 10;
-        for w in self.left.iter() {
-            offset += 10 + w.draw(d, Located::FromLeft(offset));
-        }
-        offset = 10;
-        for w in self.right.iter() {
-            offset += 10 + w.draw(d, Located::FromRight(offset));
-        }
-    }
 }
 
 impl Located {
@@ -46,6 +35,7 @@ pub struct Drawing<'t> {
     pub ctx: &'t cairo::Context,
     pub lyt: &'t pango::Layout,
     pub size: Size,
+    pub stdin: &'t str,
 }
 
 pub trait Widget {
@@ -74,19 +64,17 @@ impl Widget for Time {
 
 
 #[derive(Debug)]
-pub struct Text<'t> {
-    text: &'t str,
-}
+pub struct Stdin;
 
-impl<'t> Text<'t> {
-    pub fn new(text: &str) -> Text {
-        Text { text }
+impl Stdin {
+    pub fn new() -> Stdin {
+        Stdin
     }
 }
 
-impl<'t> Widget for Text<'t> {
+impl Widget for Stdin {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
-        loc.draw_text(d, &self.text)
+        loc.draw_text(d, &d.stdin)
     }
 }
 

@@ -4,13 +4,7 @@ use std::ffi::CString;
 use std::{mem,ptr};
 use std::os::raw::{c_int,c_uchar};
 
-#[derive(Debug,Clone,Copy)]
-pub struct Size {
-    pub wd: i32,
-    pub ht: i32,
-    pub xo: i32,
-    pub yo: i32,
-}
+use crate::widgets::Size;
 
 pub struct Display {
     pub display: *mut xlib::_XDisplay,

@@ -1,0 +1,10 @@
+background = "ff0000"
+
+[[widgets]]
+name = "stdin"
+
+[[widgets]]
+name = "sep"
+
+[[widgets]]
+name = "time"
