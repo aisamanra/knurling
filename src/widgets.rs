@@ -95,6 +95,7 @@ impl Widget for SmallBox {
 
 pub struct Battery {
     file_list: Vec<std::path::PathBuf>,
+    charging: Option<std::path::PathBuf>
 }
 
 impl Battery {
@@ -110,10 +111,26 @@ impl Battery {
                 batteries.push(path);
             }
         }
+        let ac_path = std::path::Path::new("/sys/class/power_supply/AC/online");
 
         Ok(Battery {
             file_list: batteries,
+            charging: if ac_path.exists() {
+                Some(ac_path.to_path_buf())
+            } else {
+                None
+            },
         })
+    }
+
+    fn is_charging(&self) -> Result<bool, failure::Error> {
+        if let Some(path) = &self.charging {
+            let is_connected: i32 =
+                std::fs::read_to_string(path)?.trim().parse()?;
+            Ok(is_connected != 0)
+        } else {
+            Ok(false)
+        }
     }
 
     fn read_status(&self) -> Result<f64, failure::Error> {
@@ -135,6 +152,8 @@ impl Widget for Battery {
         let sz = d.size.ht - 8;
         let x = loc.target_x(d, sz);
         match amt {
+            _ if self.is_charging().unwrap_or(false) =>
+                d.ctx.set_source_rgb(0.5, 0.5, 1.0),
             Ok(x) if x < 0.1 =>
                 d.ctx.set_source_rgb(1.0, 0.0, 0.0),
             Ok(x) if x < 0.5 =>
