@@ -122,4 +122,22 @@ impl Config {
     pub fn font(&self) -> &str {
         &self.font
     }
+
+    pub fn get_height(&self) -> i32 {
+        use pango::LayoutExt;
+
+        // we get the height here by making a fake surface, rendering
+        // some text using our chosen font to it, and seeing how big it ends up being
+        let surf = cairo::ImageSurface::create(
+            cairo::Format::Rgb24, 0, 0).unwrap();
+        let ctx = cairo::Context::new(&surf);
+        let layout = pangocairo::functions::create_layout(&ctx).unwrap();
+        layout.set_width(800 * pango::SCALE);
+        let mut font = pango::FontDescription::from_string(self.font());
+        font.set_weight(pango::Weight::Bold);
+        layout.set_font_description(&font);
+        layout.set_text("lj");
+        let (_, h) = layout.get_size();
+        (h / pango::SCALE) + 8
+    }
 }

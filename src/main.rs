@@ -14,10 +14,14 @@ use window::{Display,Event,Window};
 fn main() -> Result<(), failure::Error> {
     // set up the display and the window
     let config = config::Config::find_config()?;
+    let height = config.get_height();
+    println!("height is {}", height);
+
     let mut d = Display::create()?;
     let mut ws = Vec::new();
+
     for (x_off, wd) in d.get_widths()? {
-        let size = Size { wd, ht: 36, xo: x_off, yo: 0 };
+        let size = Size { wd, ht: height, xo: x_off, yo: 0 };
         let mut w = Window::create(&d, size)?;
         // set some window-manager properties: this is a dock
         w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
