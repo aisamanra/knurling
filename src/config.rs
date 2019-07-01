@@ -21,6 +21,7 @@ impl Config {
                 _ => (),
             }
         }
+        conf.right.reverse();
         Ok(conf)
     }
 
@@ -28,6 +29,13 @@ impl Config {
         let body = std::fs::read_to_string(path)?;
         let val = body.parse::<toml::Value>()?;
         Config::from_toml(val)
+    }
+
+    pub fn find_config() -> Result<Config, failure::Error> {
+        if let Some(p) = xdg::BaseDirectories::new()?.find_config_file("knurling/knurling.toml") {
+            return Config::from_file(p);
+        }
+        Err(format_err!("Unable to find `knurling.toml`"))
     }
 
     pub fn draw(&self, ctx: &cairo::Context, layout: &pango::Layout, stdin: &str, size: w::Size) -> Result<(), failure::Error>{

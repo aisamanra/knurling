@@ -13,7 +13,7 @@ use window::{Display,Event,Window};
 
 fn main() -> Result<(), failure::Error> {
     // set up the display and the window
-    let config = config::Config::from_file("sample.toml")?;
+    let config = config::Config::find_config()?;
     let mut d = Display::create()?;
     let mut ws = Vec::new();
     for (x_off, wd) in d.get_widths()? {

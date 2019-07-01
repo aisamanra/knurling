@@ -12,6 +12,7 @@ chrono = "*"
 libc = "0.2"
 failure = "*"
 toml = "0.5"
+xdg = "*"
 
 [dependencies.cairo-sys-rs]
 version = "0.8"
