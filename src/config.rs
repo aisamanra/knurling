@@ -9,8 +9,8 @@ mod defaults {
 }
 
 pub struct Config {
-    left: Vec<Box<w::Widget>>,
-    right: Vec<Box<w::Widget>>,
+    left: Vec<Box<dyn w::Widget>>,
+    right: Vec<Box<dyn w::Widget>>,
     bg_color: (f64, f64, f64),
     fg_color: (f64, f64, f64),
     font: String,

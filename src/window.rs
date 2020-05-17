@@ -243,13 +243,16 @@ impl<'t> Window<'t> {
     /// handle things like keyboard input and mouse input later. This
     /// will also only return values for events we care about
     pub fn handle(&mut self) -> Option<Event> {
-        let mut e = unsafe { mem::uninitialized() };
-        unsafe { xlib::XNextEvent(self.display.display, &mut e) };
-        match e.get_type() {
+        let mut e = mem::MaybeUninit::uninit();
+        unsafe {
+            xlib::XNextEvent(self.display.display, e.as_mut_ptr());
+            e.assume_init();
+        }
+        match unsafe { *e.as_ptr() }.get_type() {
             // Is it a quit event? We gotta do some tedious string
             // comparison to find out
             xlib::ClientMessage => {
-                let xclient: xlib::XClientMessageEvent = From::from(e);
+                let xclient: xlib::XClientMessageEvent = unsafe { From::from(*e.as_ptr()) };
                 if xclient.message_type == self.wm_protocols && xclient.format == 32 {
                     let protocol = xclient.data.get_long(0) as xlib::Atom;
                     if protocol == self.wm_delete_window {
@@ -263,7 +266,7 @@ impl<'t> Window<'t> {
 
             // otherwise, it might be a mouse press event
             xlib::GenericEvent => {
-                let mut cookie: xlib::XGenericEventCookie = From::from(e);
+                let mut cookie: xlib::XGenericEventCookie = unsafe { From::from(*e.as_ptr()) };
                 unsafe { xlib::XGetEventData(self.display.display, &mut cookie) };
                     match cookie.evtype {
                         xinput2::XI_ButtonPress => {

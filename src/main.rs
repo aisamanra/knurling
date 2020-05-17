@@ -48,7 +48,6 @@ fn main() -> Result<(), failure::Error> {
     // the file descriptors we care about here
     let window_fds: Vec<i32> = ws.iter_mut().map({ |w| w.get_fd() }).collect();
     let stdin_fd = std::io::stdin().as_raw_fd();
-    let mut fds = unsafe { std::mem::uninitialized() };
 
     // To begin with, our left-hand side---which normally is whatever
     // was last passed in on stdin---will start as a generic
@@ -91,20 +90,23 @@ fn main() -> Result<(), failure::Error> {
     let max_fd = window_fds.iter().max().unwrap_or(&0) + 1;
     // we're gonna keep looping until we don't
     loop {
+        let mut fds = std::mem::MaybeUninit::uninit();
+
         unsafe {
             // set up the FD set to be the X11 fd and the state of stdin
-            libc::FD_ZERO(&mut fds);
+            libc::FD_ZERO(fds.as_mut_ptr());
+            fds.assume_init();
             for fd in window_fds.iter() {
-                libc::FD_SET(*fd, &mut fds);
+                libc::FD_SET(*fd, fds.as_mut_ptr());
             }
-            libc::FD_SET(stdin_fd, &mut fds);
+            libc::FD_SET(stdin_fd, fds.as_mut_ptr());
             timer.tv_sec = 5;
 
             // this will block until there's input on either of the
             // above FDs or until five seconds have passed, whichever comes first
             libc::select(
                 max_fd,
-                &mut fds,
+                fds.as_mut_ptr(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 &mut timer,
@@ -113,7 +115,7 @@ fn main() -> Result<(), failure::Error> {
 
         // if we _did_ have input on stdin, then read it in: that'll
         // be our new left-hand text
-        if unsafe { libc::FD_ISSET(stdin_fd, &mut fds) } {
+        if unsafe { libc::FD_ISSET(stdin_fd, fds.as_mut_ptr()) } {
             use std::io::BufRead;
             input = String::new();
             stdin.read_line(&mut input)?;
