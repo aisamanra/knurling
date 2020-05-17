@@ -61,17 +61,11 @@ impl Config {
             let section = section
                 .as_table()
                 .ok_or_else(|| format_err!("invalid config"))?;
-            match section["name"]
-                .as_str()
-                .ok_or_else(|| format_err!("invalid config"))?
-            {
-                "box" => target.push(Box::new(w::SmallBox)),
-                "battery" => target.push(Box::new(w::Battery::new()?)),
-                "caesura" => target.push(Box::new(w::Caesura)),
-                "sep" => target = &mut conf.right,
-                "stdin" => target.push(Box::new(w::Stdin::new())),
-                "time" => target.push(Box::new(w::Time::new())),
-                _ => (),
+            let name = section["name"].as_str().ok_or_else(|| format_err!("invalid config"))?;
+            if name == "sep" {
+                target = &mut conf.right;
+            } else {
+                target.push(w::mk_widget(name, section)?);
             }
         }
 
