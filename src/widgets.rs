@@ -15,7 +15,7 @@ pub enum Located {
 }
 
 impl Located {
-    fn draw_text(&self, d: &Drawing, msg: &str) -> i32 {
+    fn draw_text(self, d: &Drawing, msg: &str) -> i32 {
         d.lyt.set_text(msg);
         let (w, _) = d.lyt.get_size();
         d.ctx.move_to(self.target_x(d, w / pango::SCALE), d.buffer);
@@ -23,9 +23,9 @@ impl Located {
         w / pango::SCALE
     }
 
-    fn target_x(&self, d: &Drawing, w: i32) -> f64 {
+    fn target_x(self, d: &Drawing, w: i32) -> f64 {
         match self {
-            Located::FromLeft(x) => *x as f64,
+            Located::FromLeft(x) => x as f64,
             Located::FromRight(x) => (d.size.wd - (x + w)) as f64,
         }
     }
@@ -51,7 +51,7 @@ pub struct Time {
 impl Time {
     pub fn new() -> Time {
         Time {
-            fmt: format!("%a %b %d %H:%M"),
+            fmt: "%a %b %d %H:%M".to_string(),
         }
     }
 }

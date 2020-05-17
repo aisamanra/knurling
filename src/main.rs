@@ -54,7 +54,7 @@ fn main() -> Result<(), failure::Error> {
     // To begin with, our left-hand side---which normally is whatever
     // was last passed in on stdin---will start as a generic
     // message...
-    let mut input = format!("Loading...");
+    let mut input = "Loading...".to_string();
     // And let's get a buffered stdin handle now
     let mut stdin = std::io::BufReader::new(std::io::stdin());
 
@@ -72,7 +72,7 @@ fn main() -> Result<(), failure::Error> {
         let ctx = cairo::Context::new(&surf);
 
         let layout = pangocairo::functions::create_layout(&ctx)
-            .ok_or(format_err!("unable to create layout"))?;
+            .ok_or_else(|| format_err!("unable to create layout"))?;
 
         // allow for the whole width of the bar, minus a small fixed amount
         layout.set_width((w.width - 20) * pango::SCALE);
@@ -119,7 +119,7 @@ fn main() -> Result<(), failure::Error> {
             use std::io::BufRead;
             input = String::new();
             stdin.read_line(&mut input)?;
-            if input.len() == 0 {
+            if input.is_empty() {
                 break;
             }
             for (ctx, layout, sz) in ctxs.iter() {

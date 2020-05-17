@@ -39,7 +39,7 @@ impl Display {
                     let si = screen_info
                         .offset(i as isize)
                         .as_ref()
-                        .ok_or(format_err!("bad pointer"))?;
+                        .ok_or_else(|| format_err!("bad pointer"))?;
                     widths.push((si.x_org as i32, si.width as i32));
                 }
             }
@@ -268,15 +268,12 @@ impl<'t> Window<'t> {
             xlib::GenericEvent => {
                 let mut cookie: xlib::XGenericEventCookie = unsafe { From::from(*e.as_ptr()) };
                 unsafe { xlib::XGetEventData(self.display.display, &mut cookie) };
-                match cookie.evtype {
-                    xinput2::XI_ButtonPress => {
-                        let data: &xinput2::XIDeviceEvent = unsafe { mem::transmute(cookie.data) };
-                        return Some(Event::MouseEvent {
-                            x: data.event_x,
-                            y: data.event_y,
-                        });
-                    }
-                    _ => (),
+                if let xinput2::XI_ButtonPress = cookie.evtype {
+                    let data: &xinput2::XIDeviceEvent = unsafe { &*(cookie.data as *const xinput2::XIDeviceEvent) };
+                    return Some(Event::MouseEvent {
+                        x: data.event_x,
+                        y: data.event_y,
+                    });
                 }
             }
             _ => (),
@@ -322,7 +319,7 @@ impl XProperty for i64 {
         w: &mut Window,
         f: impl FnOnce(&mut Window, u64, *const u8),
     ) -> Result<(), failure::Error> {
-        f(w, xlib::XA_CARDINAL, unsafe { mem::transmute(xs.as_ptr()) });
+        f(w, xlib::XA_CARDINAL, xs.as_ptr() as *const u8);
         Ok(())
     }
 }
@@ -334,7 +331,7 @@ impl XProperty for &str {
         f: impl FnOnce(&mut Window, u64, *const u8),
     ) -> Result<(), failure::Error> {
         let xs: Result<Vec<u64>, failure::Error> = xs.iter().map(|s| w.intern(s)).collect();
-        f(w, xlib::XA_ATOM, unsafe { mem::transmute(xs?.as_ptr()) });
+        f(w, xlib::XA_ATOM, xs?.as_ptr() as *const u8);
         Ok(())
     }
 }

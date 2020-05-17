@@ -4,8 +4,8 @@ mod defaults {
     pub const BG_COLOR: (f64, f64, f64) = (0.1, 0.1, 0.1);
     pub const FG_COLOR: (f64, f64, f64) = (1.0, 1.0, 1.0);
 
-    pub const FONT_FAMILY: &'static str = "Fira Mono";
-    pub const FONT_SIZE: &'static str = "18";
+    pub const FONT_FAMILY: &str = "Fira Mono";
+    pub const FONT_SIZE: &str = "18";
 }
 
 pub struct Config {
@@ -49,12 +49,12 @@ impl Config {
             height: 0,
             buffer: 0,
         };
-        let table = input.as_table().ok_or(format_err!("invalid config"))?;
+        let table = input.as_table().ok_or_else(|| format_err!("invalid config"))?;
         let widgets = &table["widgets"];
         let mut target = &mut conf.left;
-        for section in widgets.as_array().ok_or(format_err!("invalid config"))? {
-            let section = section.as_table().ok_or(format_err!("invalid config"))?;
-            match section["name"].as_str().ok_or(format_err!(""))? {
+        for section in widgets.as_array().ok_or_else(|| format_err!("invalid config"))? {
+            let section = section.as_table().ok_or_else(|| format_err!("invalid config"))?;
+            match section["name"].as_str().ok_or_else(|| format_err!("invalid config"))? {
                 "box" => target.push(Box::new(w::SmallBox)),
                 "battery" => target.push(Box::new(w::Battery::new()?)),
                 "caesura" => target.push(Box::new(w::Caesura)),
@@ -69,20 +69,20 @@ impl Config {
             conf.bg_color = color_from_hex(
                 color
                     .as_str()
-                    .ok_or(format_err!("`background` not a str"))?,
+                    .ok_or_else(|| format_err!("`background` not a str"))?,
             )?;
         }
         if let Some(color) = table.get("foreground") {
             conf.fg_color = color_from_hex(
                 color
                     .as_str()
-                    .ok_or(format_err!("`foreground` not a str"))?,
+                    .ok_or_else(|| format_err!("`foreground` not a str"))?,
             )?;
         }
         if let Some(font) = table.get("font") {
             conf.font = font
                 .as_str()
-                .ok_or(format_err!("`font` not a str"))?
+                .ok_or_else(|| format_err!("`font` not a str"))?
                 .to_string();
         }
         conf.right.reverse();
@@ -129,7 +129,7 @@ impl Config {
 
         // set up a struct with everything that widgets need to draw
         let d = w::Drawing {
-            ctx: ctx,
+            ctx,
             lyt: &layout,
             size,
             stdin,
