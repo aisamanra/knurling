@@ -5,11 +5,11 @@ mod config;
 mod widgets;
 mod window;
 
-use std::os::unix::io::AsRawFd;
 use pango::LayoutExt;
+use std::os::unix::io::AsRawFd;
 
 use widgets::Size;
-use window::{Display,Event,Window};
+use window::{Display, Event, Window};
 
 fn main() -> Result<(), failure::Error> {
     // set up the display and the window
@@ -20,7 +20,12 @@ fn main() -> Result<(), failure::Error> {
     let mut ws = Vec::new();
 
     for (x_off, wd) in d.get_widths()? {
-        let size = Size { wd, ht: height, xo: x_off, yo: 0 };
+        let size = Size {
+            wd,
+            ht: height,
+            xo: x_off,
+            yo: 0,
+        };
         let mut w = Window::create(&d, size)?;
         // set some window-manager properties: this is a dock
         w.change_property("_NET_WM_WINDOW_TYPE", &["_NET_WM_WINDOW_TYPE_DOCK"])?;
@@ -28,10 +33,7 @@ fn main() -> Result<(), failure::Error> {
         w.change_property("_NET_WM_STRUT", &[x_off as i64, 0, size.ht as i64, 0])?;
         w.change_property(
             "_NET_WM_STRUT_PARTIAL",
-            &[ 0, 0, size.ht as i64, 0,
-               0, 0, 0, 0,
-               0, size.wd as i64, 0, 0,
-            ],
+            &[0, 0, size.ht as i64, 0, 0, 0, 0, 0, 0, size.wd as i64, 0, 0],
         )?;
 
         // we won't ever see this, but for good measure.
@@ -69,7 +71,6 @@ fn main() -> Result<(), failure::Error> {
         let surf = w.get_cairo_surface();
         let ctx = cairo::Context::new(&surf);
 
-
         let layout = pangocairo::functions::create_layout(&ctx)
             .ok_or(format_err!("unable to create layout"))?;
 
@@ -85,7 +86,6 @@ fn main() -> Result<(), failure::Error> {
 
         ctxs.push((ctx, layout, w.size()));
     }
-
 
     let max_fd = window_fds.iter().max().unwrap_or(&0) + 1;
     // we're gonna keep looping until we don't

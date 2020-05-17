@@ -1,6 +1,6 @@
 use pango::LayoutExt;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Size {
     pub wd: i32,
     pub ht: i32,
@@ -8,7 +8,7 @@ pub struct Size {
     pub yo: i32,
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Located {
     FromLeft(i32),
     FromRight(i32),
@@ -51,7 +51,7 @@ pub struct Time {
 impl Time {
     pub fn new() -> Time {
         Time {
-            fmt: format!("%a %b %d %H:%M")
+            fmt: format!("%a %b %d %H:%M"),
         }
     }
 }
@@ -62,7 +62,6 @@ impl Widget for Time {
         loc.draw_text(d, &format!("{}", &now.format(&self.fmt)))
     }
 }
-
 
 #[derive(Debug)]
 pub struct Stdin;
@@ -78,7 +77,6 @@ impl Widget for Stdin {
         loc.draw_text(d, &d.stdin)
     }
 }
-
 
 pub struct SmallBox;
 
@@ -106,7 +104,7 @@ impl Widget for Caesura {
 
 pub struct Battery {
     file_list: Vec<std::path::PathBuf>,
-    charging: Option<std::path::PathBuf>
+    charging: Option<std::path::PathBuf>,
 }
 
 impl Battery {
@@ -136,8 +134,7 @@ impl Battery {
 
     fn is_charging(&self) -> Result<bool, failure::Error> {
         if let Some(path) = &self.charging {
-            let is_connected: i32 =
-                std::fs::read_to_string(path)?.trim().parse()?;
+            let is_connected: i32 = std::fs::read_to_string(path)?.trim().parse()?;
             Ok(is_connected != 0)
         } else {
             Ok(false)
@@ -145,10 +142,11 @@ impl Battery {
     }
 
     fn read_status(&self) -> Result<f64, failure::Error> {
-        let charges: Result<Vec<i32>, failure::Error> =
-            self.file_list.iter().map(|path| {
-            Ok(std::fs::read_to_string(path)?.trim().parse()?)
-            }).collect();
+        let charges: Result<Vec<i32>, failure::Error> = self
+            .file_list
+            .iter()
+            .map(|path| Ok(std::fs::read_to_string(path)?.trim().parse()?))
+            .collect();
         let charges = charges?;
 
         let len = charges.len() as f64;
@@ -163,16 +161,11 @@ impl Widget for Battery {
         let sz = d.size.ht - (d.buffer as i32 * 2);
         let x = loc.target_x(d, sz);
         match amt {
-            _ if self.is_charging().unwrap_or(false) =>
-                d.ctx.set_source_rgb(0.5, 0.5, 1.0),
-            Ok(x) if x < 0.1 =>
-                d.ctx.set_source_rgb(1.0, 0.0, 0.0),
-            Ok(x) if x < 0.5 =>
-                d.ctx.set_source_rgb(1.0, 1.0, 0.0),
-            Ok(_) =>
-                d.ctx.set_source_rgb(0.0, 1.0, 0.5),
-            Err(_) =>
-                d.ctx.set_source_rgb(0.0, 0.0, 0.0),
+            _ if self.is_charging().unwrap_or(false) => d.ctx.set_source_rgb(0.5, 0.5, 1.0),
+            Ok(x) if x < 0.1 => d.ctx.set_source_rgb(1.0, 0.0, 0.0),
+            Ok(x) if x < 0.5 => d.ctx.set_source_rgb(1.0, 1.0, 0.0),
+            Ok(_) => d.ctx.set_source_rgb(0.0, 1.0, 0.5),
+            Err(_) => d.ctx.set_source_rgb(0.0, 0.0, 0.0),
         }
 
         d.ctx.rectangle(
@@ -184,7 +177,8 @@ impl Widget for Battery {
         d.ctx.fill();
 
         d.ctx.set_source_rgb(1.0, 1.0, 1.0);
-        d.ctx.rectangle(x, d.buffer * 2.0, sz as f64, sz as f64 - (d.buffer * 2.0));
+        d.ctx
+            .rectangle(x, d.buffer * 2.0, sz as f64, sz as f64 - (d.buffer * 2.0));
         d.ctx.stroke();
 
         sz

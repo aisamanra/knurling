@@ -1,8 +1,8 @@
-use x11::{xlib,xinput2};
+use x11::{xinput2, xlib};
 
 use std::ffi::CString;
-use std::{mem,ptr};
-use std::os::raw::{c_int,c_uchar};
+use std::os::raw::{c_int, c_uchar};
+use std::{mem, ptr};
 
 use crate::widgets::Size;
 
@@ -28,14 +28,18 @@ impl Display {
         }
     }
 
-    pub fn get_widths(&mut self) -> Result<Vec<(i32,i32)>, failure::Error> {
+    pub fn get_widths(&mut self) -> Result<Vec<(i32, i32)>, failure::Error> {
         if unsafe { x11::xinerama::XineramaIsActive(self.display) != 0 } {
             let mut screens = 0;
-            let screen_info = unsafe { x11::xinerama::XineramaQueryScreens(self.display, &mut screens) };
+            let screen_info =
+                unsafe { x11::xinerama::XineramaQueryScreens(self.display, &mut screens) };
             let mut widths = Vec::new();
             for i in 0..screens {
                 unsafe {
-                    let si = screen_info.offset(i as isize).as_ref().ok_or(format_err!("bad pointer"))?;
+                    let si = screen_info
+                        .offset(i as isize)
+                        .as_ref()
+                        .ok_or(format_err!("bad pointer"))?;
                     widths.push((si.x_org as i32, si.width as i32));
                 }
             }
@@ -75,7 +79,12 @@ impl<'t> Window<'t> {
     /// width and height
     pub fn create(
         display: &'t Display,
-        Size { wd: width, ht: height, xo, yo }: Size,
+        Size {
+            wd: width,
+            ht: height,
+            xo,
+            yo,
+        }: Size,
     ) -> Result<Window<'t>, failure::Error> {
         unsafe {
             let screen = display.screen;
@@ -128,30 +137,22 @@ impl<'t> Window<'t> {
             );
         }
 
-        let mut mask: [c_uchar;1] = [0];
+        let mut mask: [c_uchar; 1] = [0];
         let mut input_event_mask = xinput2::XIEventMask {
             deviceid: xinput2::XIAllMasterDevices,
             mask_len: mask.len() as i32,
             mask: mask.as_mut_ptr(),
         };
-        let events = &[
-            xinput2::XI_ButtonPress,
-            xinput2::XI_ButtonRelease,
-        ];
+        let events = &[xinput2::XI_ButtonPress, xinput2::XI_ButtonRelease];
         for &event in events {
             xinput2::XISetMask(&mut mask, event);
         }
 
         match unsafe {
-            xinput2::XISelectEvents(
-                self.display.display,
-                self.window,
-                &mut input_event_mask,
-                1,
-            )
+            xinput2::XISelectEvents(self.display.display, self.window, &mut input_event_mask, 1)
         } {
             status if status as u8 == xlib::Success => (),
-            err => bail!("Failed to select events {:?}", err)
+            err => bail!("Failed to select events {:?}", err),
         }
 
         Ok(())
@@ -201,9 +202,8 @@ impl<'t> Window<'t> {
     pub fn change_property<T: XProperty>(
         &mut self,
         prop: &str,
-        val: &[T]
-    ) -> Result<(), failure::Error>
-    {
+        val: &[T],
+    ) -> Result<(), failure::Error> {
         let prop = self.intern(prop)?;
         unsafe {
             let len = val.len();
@@ -268,14 +268,16 @@ impl<'t> Window<'t> {
             xlib::GenericEvent => {
                 let mut cookie: xlib::XGenericEventCookie = unsafe { From::from(*e.as_ptr()) };
                 unsafe { xlib::XGetEventData(self.display.display, &mut cookie) };
-                    match cookie.evtype {
-                        xinput2::XI_ButtonPress => {
-                            let data: &xinput2::XIDeviceEvent =
-                                unsafe { mem::transmute(cookie.data) };
-                            return Some(Event::MouseEvent { x: data.event_x, y: data.event_y });
-                        }
-                        _ => (),
+                match cookie.evtype {
+                    xinput2::XI_ButtonPress => {
+                        let data: &xinput2::XIDeviceEvent = unsafe { mem::transmute(cookie.data) };
+                        return Some(Event::MouseEvent {
+                            x: data.event_x,
+                            y: data.event_y,
+                        });
                     }
+                    _ => (),
+                }
             }
             _ => (),
         }
@@ -285,32 +287,33 @@ impl<'t> Window<'t> {
 
     /// True if there are any pending events.
     pub fn has_events(&mut self) -> bool {
-        unsafe {
-            xlib::XPending(self.display.display) != 0
-        }
+        unsafe { xlib::XPending(self.display.display) != 0 }
     }
 
     /// Did you know that X11 uses a file descriptor underneath the
     /// surface to wait on events? This lets us use select on it!
     pub fn get_fd(&mut self) -> i32 {
-        unsafe {
-            xlib::XConnectionNumber(self.display.display)
-        }
+        unsafe { xlib::XConnectionNumber(self.display.display) }
     }
 
     pub fn size(&self) -> Size {
-        Size { wd: self.width, ht: self.height, xo: 0, yo: 0 }
+        Size {
+            wd: self.width,
+            ht: self.height,
+            xo: 0,
+            yo: 0,
+        }
     }
 }
 
 /// A trait for abstracting over different values which are allowed
 /// for xlib properties
-pub trait XProperty : Sized {
+pub trait XProperty: Sized {
     fn with_ptr(
         xs: &[Self],
         w: &mut Window,
         f: impl FnOnce(&mut Window, u64, *const u8),
-    ) -> Result<(), failure::Error> ;
+    ) -> Result<(), failure::Error>;
 }
 
 impl XProperty for i64 {
@@ -330,8 +333,7 @@ impl XProperty for &str {
         w: &mut Window,
         f: impl FnOnce(&mut Window, u64, *const u8),
     ) -> Result<(), failure::Error> {
-        let xs: Result<Vec<u64>, failure::Error> =
-            xs.iter().map(|s| w.intern(s)).collect();
+        let xs: Result<Vec<u64>, failure::Error> = xs.iter().map(|s| w.intern(s)).collect();
         f(w, xlib::XA_ATOM, unsafe { mem::transmute(xs?.as_ptr()) });
         Ok(())
     }
@@ -341,7 +343,7 @@ impl XProperty for &str {
 /// way
 #[derive(Debug)]
 pub enum Event {
-    MouseEvent { x:f64, y: f64 },
+    MouseEvent { x: f64, y: f64 },
     ShowEvent,
     QuitEvent,
 }

@@ -66,13 +66,24 @@ impl Config {
         }
 
         if let Some(color) = table.get("background") {
-            conf.bg_color = color_from_hex(color.as_str().ok_or(format_err!("`background` not a str"))?)?;
+            conf.bg_color = color_from_hex(
+                color
+                    .as_str()
+                    .ok_or(format_err!("`background` not a str"))?,
+            )?;
         }
         if let Some(color) = table.get("foreground") {
-            conf.fg_color = color_from_hex(color.as_str().ok_or(format_err!("`foreground` not a str"))?)?;
+            conf.fg_color = color_from_hex(
+                color
+                    .as_str()
+                    .ok_or(format_err!("`foreground` not a str"))?,
+            )?;
         }
         if let Some(font) = table.get("font") {
-            conf.font = font.as_str().ok_or(format_err!("`font` not a str"))?.to_string();
+            conf.font = font
+                .as_str()
+                .ok_or(format_err!("`font` not a str"))?
+                .to_string();
         }
         conf.right.reverse();
 
@@ -96,7 +107,13 @@ impl Config {
         Err(format_err!("Unable to find `knurling.toml`"))
     }
 
-    pub fn draw(&self, ctx: &cairo::Context, layout: &pango::Layout, stdin: &str, size: w::Size) -> Result<(), failure::Error>{
+    pub fn draw(
+        &self,
+        ctx: &cairo::Context,
+        layout: &pango::Layout,
+        stdin: &str,
+        size: w::Size,
+    ) -> Result<(), failure::Error> {
         // paint the background
         {
             let (r, g, b) = self.bg_color;
@@ -135,7 +152,7 @@ impl Config {
         &self.font
     }
 
-    pub fn get_height(&self) -> i32{
+    pub fn get_height(&self) -> i32 {
         self.height
     }
 
@@ -144,8 +161,7 @@ impl Config {
 
         // we get the height here by making a fake surface, rendering
         // some text using our chosen font to it, and seeing how big it ends up being
-        let surf = cairo::ImageSurface::create(
-            cairo::Format::Rgb24, 0, 0).unwrap();
+        let surf = cairo::ImageSurface::create(cairo::Format::Rgb24, 0, 0).unwrap();
         let ctx = cairo::Context::new(&surf);
         let layout = pangocairo::functions::create_layout(&ctx).unwrap();
         layout.set_width(800 * pango::SCALE);
