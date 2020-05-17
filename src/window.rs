@@ -269,7 +269,8 @@ impl<'t> Window<'t> {
                 let mut cookie: xlib::XGenericEventCookie = unsafe { From::from(*e.as_ptr()) };
                 unsafe { xlib::XGetEventData(self.display.display, &mut cookie) };
                 if let xinput2::XI_ButtonPress = cookie.evtype {
-                    let data: &xinput2::XIDeviceEvent = unsafe { &*(cookie.data as *const xinput2::XIDeviceEvent) };
+                    let data: &xinput2::XIDeviceEvent =
+                        unsafe { &*(cookie.data as *const xinput2::XIDeviceEvent) };
                     return Some(Event::MouseEvent {
                         x: data.event_x,
                         y: data.event_y,

@@ -49,12 +49,22 @@ impl Config {
             height: 0,
             buffer: 0,
         };
-        let table = input.as_table().ok_or_else(|| format_err!("invalid config"))?;
+        let table = input
+            .as_table()
+            .ok_or_else(|| format_err!("invalid config"))?;
         let widgets = &table["widgets"];
         let mut target = &mut conf.left;
-        for section in widgets.as_array().ok_or_else(|| format_err!("invalid config"))? {
-            let section = section.as_table().ok_or_else(|| format_err!("invalid config"))?;
-            match section["name"].as_str().ok_or_else(|| format_err!("invalid config"))? {
+        for section in widgets
+            .as_array()
+            .ok_or_else(|| format_err!("invalid config"))?
+        {
+            let section = section
+                .as_table()
+                .ok_or_else(|| format_err!("invalid config"))?;
+            match section["name"]
+                .as_str()
+                .ok_or_else(|| format_err!("invalid config"))?
+            {
                 "box" => target.push(Box::new(w::SmallBox)),
                 "battery" => target.push(Box::new(w::Battery::new()?)),
                 "caesura" => target.push(Box::new(w::Caesura)),
