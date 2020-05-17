@@ -43,8 +43,7 @@ pub trait Widget {
         None
     }
 
-    fn update(&mut self) {
-    }
+    fn update(&mut self) {}
 
     fn draw(&self, d: &Drawing, loc: Located) -> i32;
 }

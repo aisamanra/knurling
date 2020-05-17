@@ -90,7 +90,9 @@ impl Config {
             let section = section
                 .as_table()
                 .ok_or_else(|| format_err!("invalid config"))?;
-            let name = section["name"].as_str().ok_or_else(|| format_err!("invalid config"))?;
+            let name = section["name"]
+                .as_str()
+                .ok_or_else(|| format_err!("invalid config"))?;
             if name == "sep" {
                 target = &mut conf.right;
             } else {
@@ -182,8 +184,12 @@ impl Config {
     }
 
     pub fn update(&mut self) {
-        for w in self.left.iter_mut() { w.update() }
-        for w in self.right.iter_mut() { w.update() }
+        for w in self.left.iter_mut() {
+            w.update()
+        }
+        for w in self.right.iter_mut() {
+            w.update()
+        }
     }
 
     pub fn font(&self) -> &str {
@@ -208,6 +214,6 @@ impl Config {
         layout.set_font_description(&font);
         layout.set_text("lj");
         let (_, h) = layout.get_size();
-        (h / pango::SCALE)
+        h / pango::SCALE
     }
 }

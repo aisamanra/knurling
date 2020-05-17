@@ -1,6 +1,6 @@
-use crate::widgets::widget::{Widget,Drawing,Located};
+use crate::widgets::widget::{Drawing, Located, Widget};
 
-use std::io::{Write, BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
 pub struct MPD {
@@ -17,7 +17,11 @@ enum State {
 impl MPD {
     pub fn new(host: String, port: usize) -> MPD {
         let last_state = State::Stopped;
-        MPD {host, port, last_state}
+        MPD {
+            host,
+            port,
+            last_state,
+        }
     }
 
     fn get_song(&self) -> Result<State, failure::Error> {

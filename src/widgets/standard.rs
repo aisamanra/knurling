@@ -1,4 +1,4 @@
-pub use crate::widgets::widget::{Located,Drawing,Size,Widget};
+pub use crate::widgets::widget::{Drawing, Located, Size, Widget};
 
 #[derive(Debug)]
 pub struct Time {
