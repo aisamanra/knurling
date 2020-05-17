@@ -6,6 +6,7 @@ use std::net::TcpStream;
 pub struct MPD {
     host: String,
     port: usize,
+    last_state: State,
 }
 
 enum State {
@@ -15,7 +16,8 @@ enum State {
 
 impl MPD {
     pub fn new(host: String, port: usize) -> MPD {
-        MPD {host, port}
+        let last_state = State::Stopped;
+        MPD {host, port, last_state}
     }
 
     fn get_song(&self) -> Result<State, failure::Error> {
@@ -61,10 +63,20 @@ impl MPD {
 
 impl Widget for MPD {
     fn draw(&self, d: &Drawing, loc: Located) -> i32 {
+        match self.last_state {
+            State::Playing(ref song) => loc.draw_text(d, &format!("[{}]", song)),
+            State::Stopped => loc.draw_text(d, &format!("[N/A]")),
+        }
+    }
+
+    fn update_frequency(&self) -> Option<u64> {
+        Some(5)
+    }
+
+    fn update(&mut self) {
         match self.get_song() {
-            Ok(State::Playing(song)) => loc.draw_text(d, &format!("[{}]", song)),
-            Ok(State::Stopped) => loc.draw_text(d, &format!("[N/A]")),
-            Err(_err) => loc.draw_text(d, &format!("[Error]")),
+            Ok(state) => self.last_state = state,
+            Err(err) => eprintln!("Failed to update MPD status: {}", err),
         }
     }
 }

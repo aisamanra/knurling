@@ -39,5 +39,12 @@ pub struct Drawing<'t> {
 }
 
 pub trait Widget {
+    fn update_frequency(&self) -> Option<u64> {
+        None
+    }
+
+    fn update(&mut self) {
+    }
+
     fn draw(&self, d: &Drawing, loc: Located) -> i32;
 }

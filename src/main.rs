@@ -13,7 +13,7 @@ use window::{Display, Event, Window};
 
 fn main() -> Result<(), failure::Error> {
     // set up the display and the window
-    let config = config::Config::find_config()?;
+    let mut config = config::Config::find_config()?;
     let height = config.get_height();
 
     let mut d = Display::create()?;
@@ -142,6 +142,7 @@ fn main() -> Result<(), failure::Error> {
             // otherwise, draw the thing!
             config.draw(&ctx, &layout, &input, *sz)?;
         }
+        config.update();
     }
 
     Ok(())

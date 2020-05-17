@@ -1,4 +1,5 @@
 use crate::widgets as w;
+use std::time;
 
 mod defaults {
     pub const BG_COLOR: (f64, f64, f64) = (0.1, 0.1, 0.1);
@@ -9,13 +10,41 @@ mod defaults {
 }
 
 pub struct Config {
-    left: Vec<Box<dyn w::Widget>>,
-    right: Vec<Box<dyn w::Widget>>,
+    left: Vec<WidgetWrapper>,
+    right: Vec<WidgetWrapper>,
     bg_color: (f64, f64, f64),
     fg_color: (f64, f64, f64),
     font: String,
     height: i32,
     buffer: i32,
+}
+
+pub struct WidgetWrapper {
+    update: Option<(time::Duration, time::SystemTime)>,
+    widget: Box<dyn w::Widget>,
+}
+
+impl WidgetWrapper {
+    fn new(mut widget: Box<dyn w::Widget>) -> WidgetWrapper {
+        let update = if let Some(f) = widget.update_frequency() {
+            widget.update();
+            Some((time::Duration::new(f, 0), time::SystemTime::now()))
+        } else {
+            None
+        };
+        WidgetWrapper { update, widget }
+    }
+
+    fn update(&mut self) {
+        if let Some((freq, ref mut last)) = self.update {
+            if let Ok(since) = last.elapsed() {
+                if since > freq {
+                    self.widget.update();
+                    *last = time::SystemTime::now();
+                }
+            }
+        }
+    }
 }
 
 pub fn color_from_hex(input: &str) -> Result<(f64, f64, f64), failure::Error> {
@@ -65,7 +94,7 @@ impl Config {
             if name == "sep" {
                 target = &mut conf.right;
             } else {
-                target.push(w::mk_widget(name, section)?);
+                target.push(WidgetWrapper::new(w::mk_widget(name, section)?));
             }
         }
 
@@ -142,14 +171,19 @@ impl Config {
 
         let mut offset = 10;
         for w in self.left.iter() {
-            offset += 10 + w.draw(&d, w::Located::FromLeft(offset));
+            offset += 10 + w.widget.draw(&d, w::Located::FromLeft(offset));
         }
         offset = 10;
         for w in self.right.iter() {
-            offset += 10 + w.draw(&d, w::Located::FromRight(offset));
+            offset += 10 + w.widget.draw(&d, w::Located::FromRight(offset));
         }
 
         Ok(())
+    }
+
+    pub fn update(&mut self) {
+        for w in self.left.iter_mut() { w.update() }
+        for w in self.right.iter_mut() { w.update() }
     }
 
     pub fn font(&self) -> &str {
